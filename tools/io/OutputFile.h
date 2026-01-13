@@ -3,6 +3,7 @@
 #pragma once
 
 #include <fstream>
+#include <memory>
 #include <string>
 
 #include "openzl/cpp/poly/Optional.hpp"
@@ -30,7 +31,7 @@ class OutputFile : public Output {
 
    private:
     std::string filename_;
-    poly::optional<std::ofstream> os_;
+    std::unique_ptr<std::ostream> os_;
 };
 
 } // namespace openzl::tools::io
