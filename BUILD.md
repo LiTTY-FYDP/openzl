@@ -52,7 +52,8 @@ sudo apt-get install -y protobuf-compiler libprotobuf-dev libprotoc-dev
 
 3.  Build:
     ```bash
-    make -j$(nproc)
+    make -j $(sysctl -n hw.logicalcpu)
+    make -j $(sysctl -n hw.logicalcpu) protobuf_cli
     ```
 
 ## Running Tests
