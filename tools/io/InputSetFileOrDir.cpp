@@ -49,9 +49,8 @@ class InputSetFileOrDir::IteratorStateSingleFile
 };
 
 InputSetFileOrDir::InputSetFileOrDir(std::string path, bool recursive)
-        : InputSetDir(std::move(path), recursive),
-          is_dir_(std::filesystem::status(path_).type()
-                  == std::filesystem::file_type::directory)
+    : InputSetDir(std::move(path), recursive),
+      is_dir_(path_ != "-" && std::filesystem::status(path_).type() == std::filesystem::file_type::directory)
 {
 }
 

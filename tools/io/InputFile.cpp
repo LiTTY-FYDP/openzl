@@ -46,6 +46,18 @@ void InputFile::read()
 {
     Logger::log_c(VERBOSE1, "Reading from input file '%s'", filename_.c_str());
 
+    if (filename_ == "-") {
+        try {
+            auto ss = std::ostringstream();
+            ss << std::cin.rdbuf();
+            contents_ = std::move(ss).str();
+            return;
+        } catch (const std::system_error& err) {
+            throw IOException(
+                    "Failed to read from stdin: " + err.code().message());
+        }
+    }
+
     std::filesystem::path path(filename_);
     if (std::filesystem::exists(path) && std::filesystem::is_directory(path)) {
         throw IOException(
