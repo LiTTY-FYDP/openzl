@@ -49,6 +49,7 @@ std::string kProto       = "proto";
 std::string kDescriptor  = "descriptor";
 std::string kProtoPath   = "proto-path";
 std::string kMessageType = "message-type";
+std::string kHelp        = "help";
 
 enum Cmd : int {
     UNSPECIFIED = 0,
@@ -390,18 +391,26 @@ int main(int argc, char** argv)
 {
     openzl::arg::ArgParser parser;
 
+    // help flag (immediate - processed before validation)
+    parser.addGlobalImmediate(
+            kHelp, 'h', false, "Display this help message.");
+
     // global flags
-    parser.addGlobalFlag(kInput, 'i', true, "The input protobuf file");
+    parser.addGlobalFlag(
+            kInput,
+            'i',
+            true,
+            "Input file(s) containing protobuf messages. Can be a file or directory.");
     parser.addGlobalFlag(
             kInputType,
             't',
             true,
-            "The input protocol used. Must be one of: proto, zl");
+            "Input protocol format. Must be one of: proto, zl, json. Default: proto");
     parser.addGlobalFlag(
             kCompressor,
             'c',
             true,
-            "An optional compressor to use for the ZL protocol.");
+            "Optional compressor file to use for ZL protocol serialization.");
 
     // Dynamic schema arguments: Use these flags to work with protobuf schemas
     // that are not compiled into the binary. You can either provide a .proto
@@ -413,56 +422,88 @@ int main(int argc, char** argv)
             kProto,
             0,
             true,
-            "Load schema from .proto file (for dynamic schemas)");
+            "Load schema from .proto source file (for dynamic schemas). Requires --message-type.");
     parser.addGlobalFlag(
             kDescriptor,
             0,
             true,
-            "Load schema from .desc file (for dynamic schemas)");
+            "Load schema from compiled .desc descriptor file (for dynamic schemas). Requires --message-type.");
     parser.addGlobalFlag(
-            kProtoPath, 0, true, "Directory to search for .proto imports");
+            kProtoPath,
+            0,
+            true,
+            "Directory path to search for .proto file imports (used with --proto).");
     parser.addGlobalFlag(
             kMessageType,
             0,
             true,
-            "Fully qualified message type name (required with --proto or --descriptor)");
+            "Fully qualified message type name (e.g., 'package.MessageType'). Required when using --proto or --descriptor.");
 
-    // serialize
+    // serialize command
     parser.addCommand(Cmd::SERIALIZE, "serialize", 's');
     parser.addCommandFlag(
-            Cmd::SERIALIZE, kOutput, 'o', true, "The output protobuf file");
+            Cmd::SERIALIZE,
+            kOutput,
+            'o',
+            true,
+            "Output file path. If not specified, output filename is derived from input filename with appropriate extension.");
     parser.addCommandFlag(
             Cmd::SERIALIZE,
             kOutputType,
             'u',
             true,
-            "The output protocol used. Must be one of: proto, zl");
+            "Output protocol format. Must be one of: proto, zl, json. Default: zl");
     parser.addCommandFlag(
             Cmd::SERIALIZE,
             kCheck,
             'c',
             false,
-            "Check if serialization round trip is correct.");
+            "Verify round-trip correctness by deserializing and comparing with original message.");
 
-    // benchmark
+    // benchmark command
     parser.addCommand(Cmd::BENCHMARK, "benchmark", 'b');
     parser.addCommandFlag(
             Cmd::BENCHMARK,
             kNumIters,
             'n',
             true,
-            "The number of iterations to run for each file.");
+            "Number of iterations to run for performance measurement. Default: 10");
 
-    // train
+    // train command
     parser.addCommand(Cmd::TRAIN, "train", 't');
     parser.addCommandFlag(
             Cmd::TRAIN,
             kOutput,
             'o',
             true,
-            "The output trained compressor file");
+            "Output file path for the trained compressor.");
+
+    // Create usage function for help text
+    auto usage = [&](const Cmd& cmd) -> std::string {
+        auto help = cmd == Cmd::UNSPECIFIED ? parser.help() : parser.help(cmd);
+        return "OpenZL Protobuf CLI Tool\n"
+               "\n"
+               "This tool converts between protobuf default serialization and OpenZL serialization\n"
+               "for protobuf messages. It supports both compiled-in schemas and dynamic schemas.\n"
+               "\n"
+               "Usage: " + std::string(argv[0]) + " <command> [global-options] [command-options]\n"
+               "\n" +
+               std::move(help);
+    };
+
+    // Handle no arguments case
+    if (argc == 1) {
+        ZL_LOG(ALWAYS, "%s", usage(Cmd::UNSPECIFIED).c_str());
+        return 0;
+    }
 
     auto args = parser.parse(argc, argv);
+
+    // Handle help flag (immediate)
+    if (args.immediate().has_value() && args.immediate().value() == kHelp) {
+        ZL_LOG(ALWAYS, "%s", usage(static_cast<Cmd>(args.chosenCmd())).c_str());
+        return 0;
+    }
 
     switch (args.chosenCmd()) {
         case Cmd::SERIALIZE: {
@@ -475,7 +516,8 @@ int main(int argc, char** argv)
             return openzl::protobuf::handleTrain(TrainArgs(args));
         }
         default: {
-            ZL_LOG(ALWAYS, "No command specified!");
+            ZL_LOG(ALWAYS, "No command specified! Use --help or -h for usage information.");
+            ZL_LOG(ALWAYS, "%s", usage(Cmd::UNSPECIFIED).c_str());
             return 1;
         }
     }
