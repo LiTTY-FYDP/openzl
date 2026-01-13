@@ -6,6 +6,7 @@
 
 #include <cerrno>
 #include <fstream>
+#include <iostream>
 #include <system_error>
 
 namespace openzl::tools::io {
@@ -21,22 +22,39 @@ poly::string_view OutputFile::name() const
 
 void OutputFile::open()
 {
+    if (filename_ == "-") {
+        os_ = std::make_unique<std::ostream>(std::cout.rdbuf());
+        return;
+    }
+
     static constexpr auto bits = std::ofstream::badbit | std::ofstream::failbit
             | std::ofstream::eofbit;
-    os_.emplace();
-    os_->exceptions(bits);
+    auto ofs = std::make_unique<std::ofstream>();
+    ofs->exceptions(bits);
     try {
-        os_->open(filename_, std::ios::binary);
+        ofs->open(filename_, std::ios::binary);
     } catch (const std::system_error&) {
-        os_.reset();
+        // ofs destructor will close if open failed partially (unlikely for open itself)
+        // But checking errno here.
         throw IOException(
                 "Failed to open output file '" + filename_
                 + "': " + std::system_category().message(errno));
     }
+    os_ = std::move(ofs);
 }
 
 void OutputFile::close()
 {
+    if (!os_) {
+        return;
+    }
+
+    if (filename_ == "-") {
+        os_->flush();
+        os_.reset();
+        return;
+    }
+
     try {
         os_.reset();
     } catch (const std::system_error&) {
@@ -66,7 +84,10 @@ void OutputFile::write(poly::string_view contents)
 
 std::ostream& OutputFile::get_ostream()
 {
-    return os_.value();
+    if (!os_) {
+        open();
+    }
+    return *os_;
 }
 
 } // namespace openzl::tools::io
