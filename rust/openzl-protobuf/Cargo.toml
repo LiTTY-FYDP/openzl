@@ -9,3 +9,6 @@ build = "build.rs"
 
 [dependencies]
 
+[dev-dependencies]
+prost = "0.14.3"
+
