@@ -60,6 +60,7 @@ fn main() {
         .arg("-DOPENZL_BUILD_BENCHMARKS=OFF")
         .arg("-DOPENZL_BUILD_TESTS=OFF")
         .arg("-DOPENZL_BUILD_CLI=OFF")
+        .arg("-DOPENZL_BUILD_LOGGER=ON")
         .arg("-DOPENZL_BUILD_EXAMPLES=OFF")
         .arg("-DOPENZL_BUILD_PYTHON_EXT=OFF")
         .arg("-DOPENZL_BUILD_PYTHON_EXT_TESTS=OFF")
