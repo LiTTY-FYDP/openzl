@@ -15,21 +15,21 @@
 #include "tools/training/train.h"
 #include "tools/training/train_params.h"
 
+struct OpenZLProtobufContext {
+    openzl::protobuf::ProtoSerializer serializer;
+    openzl::protobuf::ProtoDeserializer deserializer;
+    std::shared_ptr<const google::protobuf::DescriptorPool> descriptor_pool;
+    std::unique_ptr<openzl::protobuf::DynamicMessageHelper> message_helper;
+    std::string message_type;
+    std::string last_error;
+    bool ready = false;
+};
+
 namespace {
 using openzl::protobuf::DescriptorLoader;
 using openzl::protobuf::DynamicMessageHelper;
 using openzl::protobuf::ProtoDeserializer;
 using openzl::protobuf::ProtoSerializer;
-
-struct OpenZLProtobufContext {
-    ProtoSerializer serializer;
-    ProtoDeserializer deserializer;
-    std::shared_ptr<const google::protobuf::DescriptorPool> descriptor_pool;
-    std::unique_ptr<DynamicMessageHelper> message_helper;
-    std::string message_type;
-    std::string last_error;
-    bool ready = false;
-};
 
 const char* kNullContextError = "OpenZL Protobuf context is null.";
 
