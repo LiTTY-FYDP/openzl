@@ -12,7 +12,7 @@
 #include "tools/protobuf/DynamicMessageHelper.h"
 #include "tools/protobuf/ProtoDeserializer.h"
 #include "tools/protobuf/ProtoSerializer.h"
-#include "tools/training/train.h"
+#include "tools/training/clustering/clustering_graph_trainer.h"
 #include "tools/training/train_params.h"
 
 struct OpenZLProtobufContext {
@@ -314,17 +314,16 @@ int openzl_protobuf_train(
 
         auto compressor = ctx->serializer.getCompressor();
         openzl::training::TrainParams params;
-        params.compressorGenFunc =
-                openzl::custom_parsers::createCompressorFromSerialized;
+        params.noAceSuccessors = true;
 
         auto serialized =
-                openzl::training::train(inputs, *compressor, params);
-        if (serialized.empty() || !serialized[0]) {
+                openzl::training::trainClusteringGraph(inputs, *compressor, params);
+        if (!serialized) {
             setError(ctx, "Training returned no compressors.");
             return 0;
         }
 
-        std::string out(*serialized[0]);
+        std::string out(*serialized);
         return copyToBuffer(ctx, out, out_compressor) ? 1 : 0;
     } catch (const std::exception& ex) {
         setError(ctx, ex.what());
