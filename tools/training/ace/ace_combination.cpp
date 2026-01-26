@@ -1,3 +1,4 @@
+#include <array>
 #include <set>
 
 #include "openzl/compress/cgraph.h"
@@ -60,6 +61,67 @@ SerializedCompressorInternal runReplacements(
     Logger::log(VERBOSE3, "Graph with trained ACE successors: ", json);
 
     return SerializedCompressorInternal(std::move(serialized));
+}
+
+openzl::Type preferredInputType(const std::vector<MultiInput>& samples)
+{
+    std::array<size_t, 4> counts{};
+    std::array<size_t, 4> bytes{};
+    bool hasFallback            = false;
+    openzl::Type fallbackType   = openzl::Type::Serial;
+
+    for (const auto& sample : samples) {
+        for (const auto& input : *sample) {
+            if (!hasFallback) {
+                fallbackType = input.type();
+                hasFallback  = true;
+            }
+            const auto idx = static_cast<size_t>(input.type());
+            if (idx >= counts.size()) {
+                continue;
+            }
+            if (input.contentSize() > 0) {
+                counts[idx] += 1;
+                bytes[idx] += input.contentSize();
+            }
+        }
+    }
+
+    if (!hasFallback) {
+        return openzl::Type::Serial;
+    }
+
+    size_t bestIndex      = 0;
+    size_t bestByteCount  = 0;
+    size_t bestItemCount  = 0;
+    for (size_t i = 0; i < counts.size(); ++i) {
+        if (bytes[i] > bestByteCount
+            || (bytes[i] == bestByteCount && counts[i] > bestItemCount)) {
+            bestIndex     = i;
+            bestByteCount = bytes[i];
+            bestItemCount = counts[i];
+        }
+    }
+
+    if (bestByteCount == 0 && bestItemCount == 0) {
+        return fallbackType;
+    }
+    return static_cast<openzl::Type>(bestIndex);
+}
+
+std::vector<Input> flattenInputsByType(
+        std::vector<MultiInput>& samples,
+        openzl::Type type)
+{
+    std::vector<Input> flattened;
+    for (auto& sample : samples) {
+        for (auto& input : *sample) {
+            if (input.type() == type) {
+                flattened.push_back(InputRef(input.get()));
+            }
+        }
+    }
+    return flattened;
 }
 
 /**
@@ -330,12 +392,8 @@ std::vector<SerializedCompressorInternal> getCombinedCompressors(
             continue;
         }
         auto aceInputs = samples[backendGraph];
-        auto flattened = std::vector<Input>();
-        for (auto& sample : aceInputs) {
-            for (auto& input : *sample) {
-                flattened.push_back(InputRef(input.get()));
-            }
-        }
+        const auto type = preferredInputType(aceInputs);
+        auto flattened = flattenInputsByType(aceInputs, type);
         if (flattened.empty()) {
             continue;
         }

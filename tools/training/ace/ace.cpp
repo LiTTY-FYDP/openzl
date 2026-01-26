@@ -1,5 +1,6 @@
 // Copyright (c) Meta Platforms, Inc. and affiliates.
 
+#include <array>
 #include <memory>
 #include <string_view>
 #include <vector>
@@ -25,6 +26,67 @@ namespace {
 using namespace openzl::training::graph_mutation;
 using namespace openzl::tools::logger;
 
+openzl::Type preferredInputType(const std::vector<MultiInput>& samples)
+{
+    std::array<size_t, 4> counts{};
+    std::array<size_t, 4> bytes{};
+    bool hasFallback            = false;
+    openzl::Type fallbackType   = openzl::Type::Serial;
+
+    for (const auto& sample : samples) {
+        for (const auto& input : *sample) {
+            if (!hasFallback) {
+                fallbackType = input.type();
+                hasFallback  = true;
+            }
+            const auto idx = static_cast<size_t>(input.type());
+            if (idx >= counts.size()) {
+                continue;
+            }
+            if (input.contentSize() > 0) {
+                counts[idx] += 1;
+                bytes[idx] += input.contentSize();
+            }
+        }
+    }
+
+    if (!hasFallback) {
+        return openzl::Type::Serial;
+    }
+
+    size_t bestIndex      = 0;
+    size_t bestByteCount  = 0;
+    size_t bestItemCount  = 0;
+    for (size_t i = 0; i < counts.size(); ++i) {
+        if (bytes[i] > bestByteCount
+            || (bytes[i] == bestByteCount && counts[i] > bestItemCount)) {
+            bestIndex     = i;
+            bestByteCount = bytes[i];
+            bestItemCount = counts[i];
+        }
+    }
+
+    if (bestByteCount == 0 && bestItemCount == 0) {
+        return fallbackType;
+    }
+    return static_cast<openzl::Type>(bestIndex);
+}
+
+std::vector<Input> flattenInputsByType(
+        std::vector<MultiInput>& samples,
+        openzl::Type type)
+{
+    std::vector<Input> flattened;
+    for (auto& sample : samples) {
+        for (auto& input : *sample) {
+            if (input.type() == type) {
+                flattened.push_back(InputRef(input.get()));
+            }
+        }
+    }
+    return flattened;
+}
+
 /**
  * @returns The Pareto-optimal set of compressors for @p samples.
  */
@@ -38,11 +100,11 @@ std::string trainBackend(
         throw Exception(
                 "There cannot be no samples for a backend graph to be trained.");
     }
-    auto flattened = std::vector<Input>();
-    for (auto& sample : samples) {
-        for (auto& input : *sample) {
-            flattened.push_back(InputRef(input.get()));
-        }
+    const auto type = preferredInputType(samples);
+    auto flattened = flattenInputsByType(samples, type);
+    if (flattened.empty()) {
+        throw Exception(
+                "No ACE inputs remain after filtering to a single type.");
     }
     poly::optional<std::chrono::seconds> maxTime;
     if (trainParams.maxTimeSecs.has_value()) {
