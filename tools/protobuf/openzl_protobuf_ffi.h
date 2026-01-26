@@ -27,6 +27,25 @@ typedef struct OpenZLBuffer {
     size_t len;
 } OpenZLBuffer;
 
+typedef enum OpenZLProtobufClusteringTrainer {
+    OPENZL_PROTOBUF_CLUSTERING_TRAINER_GREEDY = 0,
+    OPENZL_PROTOBUF_CLUSTERING_TRAINER_BOTTOM_UP = 1,
+    OPENZL_PROTOBUF_CLUSTERING_TRAINER_FULL_SPLIT = 2,
+} OpenZLProtobufClusteringTrainer;
+
+typedef struct OpenZLProtobufTrainParams {
+    uint8_t has_threads;
+    uint32_t threads;
+    uint8_t has_clustering_trainer;
+    OpenZLProtobufClusteringTrainer clustering_trainer;
+    uint8_t has_max_time_secs;
+    size_t max_time_secs;
+    uint8_t has_no_ace_successors;
+    uint8_t no_ace_successors;
+    uint8_t has_no_clustering;
+    uint8_t no_clustering;
+} OpenZLProtobufTrainParams;
+
 OpenZLProtobufContext* openzl_protobuf_create(
         const OpenZLProtobufSchema* schema);
 void openzl_protobuf_destroy(OpenZLProtobufContext* ctx);
@@ -50,6 +69,12 @@ int openzl_protobuf_train(
         OpenZLProtobufContext* ctx,
         const OpenZLBuffer* samples,
         size_t samples_len,
+        OpenZLBuffer* out_compressor);
+int openzl_protobuf_train_with_params(
+        OpenZLProtobufContext* ctx,
+        const OpenZLBuffer* samples,
+        size_t samples_len,
+        const OpenZLProtobufTrainParams* params,
         OpenZLBuffer* out_compressor);
 
 void openzl_protobuf_free_buffer(OpenZLBuffer* buffer);

@@ -16,6 +16,14 @@ enum OpenZLProtobufSchemaType {
 }
 
 #[repr(C)]
+#[derive(Debug, Copy, Clone)]
+enum OpenZLProtobufClusteringTrainer {
+    OpenZlProtobufClusteringTrainerGreedy = 0,
+    OpenZlProtobufClusteringTrainerBottomUp = 1,
+    OpenZlProtobufClusteringTrainerFullSplit = 2,
+}
+
+#[repr(C)]
 struct OpenZLProtobufSchema {
     schema_type: OpenZLProtobufSchemaType,
     schema_path: *const c_char,
@@ -29,6 +37,21 @@ struct OpenZLProtobufSchema {
 struct OpenZLBuffer {
     data: *mut u8,
     len: usize,
+}
+
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+struct OpenZLProtobufTrainParams {
+    has_threads: u8,
+    threads: u32,
+    has_clustering_trainer: u8,
+    clustering_trainer: OpenZLProtobufClusteringTrainer,
+    has_max_time_secs: u8,
+    max_time_secs: usize,
+    has_no_ace_successors: u8,
+    no_ace_successors: u8,
+    has_no_clustering: u8,
+    no_clustering: u8,
 }
 
 extern "C" {
@@ -59,6 +82,13 @@ extern "C" {
         samples_len: usize,
         out_compressor: *mut OpenZLBuffer,
     ) -> i32;
+    fn openzl_protobuf_train_with_params(
+        ctx: *mut OpenZLProtobufContext,
+        samples: *const OpenZLBuffer,
+        samples_len: usize,
+        params: *const OpenZLProtobufTrainParams,
+        out_compressor: *mut OpenZLBuffer,
+    ) -> i32;
     fn openzl_protobuf_free_buffer(buffer: *mut OpenZLBuffer);
 }
 
@@ -79,6 +109,36 @@ pub enum Schema {
     /// `path` is passed directly to the filesystem, so it can be absolute or
     /// relative to the current working directory.
     Descriptor { path: String, message_type: String },
+}
+
+/// Training algorithm selection for clustering graphs.
+#[derive(Debug, Copy, Clone)]
+pub enum ClusteringTrainer {
+    Greedy,
+    BottomUp,
+    FullSplit,
+}
+
+/// Training parameters for clustering-based compressors.
+#[derive(Debug, Copy, Clone)]
+pub struct TrainParams {
+    pub threads: Option<u32>,
+    pub clustering_trainer: Option<ClusteringTrainer>,
+    pub max_time_secs: Option<usize>,
+    pub no_ace_successors: bool,
+    pub no_clustering: bool,
+}
+
+impl Default for TrainParams {
+    fn default() -> Self {
+        Self {
+            threads: None,
+            clustering_trainer: None,
+            max_time_secs: None,
+            no_ace_successors: true,
+            no_clustering: false,
+        }
+    }
 }
 
 impl Schema {
@@ -270,6 +330,67 @@ impl OpenZLProtobuf {
                 self.ctx.as_ptr(),
                 buffers.as_ptr(),
                 buffers.len(),
+                &mut out,
+            )
+        };
+        if ok != 1 {
+            return Err(self.error_from_last("Training failed."));
+        }
+        Ok(unsafe { take_buffer(out) })
+    }
+
+    /// Train a compressor from a set of protobuf messages with parameters.
+    pub fn train_compressor_with_params(
+        &self,
+        samples: &[&[u8]],
+        params: TrainParams,
+    ) -> Result<Vec<u8>, Error> {
+        if samples.is_empty() {
+            return Err(Error::new("Training samples are empty."));
+        }
+
+        let buffers: Vec<OpenZLBuffer> = samples
+            .iter()
+            .map(|sample| OpenZLBuffer {
+                data: sample.as_ptr() as *mut u8,
+                len: sample.len(),
+            })
+            .collect();
+
+        let ffi_params = OpenZLProtobufTrainParams {
+            has_threads: params.threads.is_some() as u8,
+            threads: params.threads.unwrap_or_default(),
+            has_clustering_trainer: params.clustering_trainer.is_some() as u8,
+            clustering_trainer: match params.clustering_trainer.unwrap_or(ClusteringTrainer::Greedy)
+            {
+                ClusteringTrainer::Greedy => {
+                    OpenZLProtobufClusteringTrainer::OpenZlProtobufClusteringTrainerGreedy
+                }
+                ClusteringTrainer::BottomUp => {
+                    OpenZLProtobufClusteringTrainer::OpenZlProtobufClusteringTrainerBottomUp
+                }
+                ClusteringTrainer::FullSplit => {
+                    OpenZLProtobufClusteringTrainer::OpenZlProtobufClusteringTrainerFullSplit
+                }
+            },
+            has_max_time_secs: params.max_time_secs.is_some() as u8,
+            max_time_secs: params.max_time_secs.unwrap_or_default(),
+            has_no_ace_successors: 1,
+            no_ace_successors: params.no_ace_successors as u8,
+            has_no_clustering: 1,
+            no_clustering: params.no_clustering as u8,
+        };
+
+        let mut out = OpenZLBuffer {
+            data: std::ptr::null_mut(),
+            len: 0,
+        };
+        let ok = unsafe {
+            openzl_protobuf_train_with_params(
+                self.ctx.as_ptr(),
+                buffers.as_ptr(),
+                buffers.len(),
+                &ffi_params,
                 &mut out,
             )
         };

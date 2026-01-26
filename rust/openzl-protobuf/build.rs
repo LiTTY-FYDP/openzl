@@ -63,15 +63,16 @@ fn main() {
     println!("cargo:rustc-link-search=native={}", lib_dir.display());
     println!("cargo:rustc-link-lib=dylib=openzl_protobuf_ffi");
 
-    if env::var("CARGO_CFG_TARGET_OS").as_deref() == Ok("linux") {
-        println!("cargo:rustc-link-arg=-Wl,-rpath,{}", lib_dir.display());
-    } else if env::var("CARGO_CFG_TARGET_OS").as_deref() == Ok("macos") {
-        println!("cargo:rustc-link-arg=-Wl,-rpath,{}", lib_dir.display());
-    }
-
-    if env::var("CARGO_CFG_TARGET_OS").as_deref() == Ok("linux") {
-        println!("cargo:rustc-link-lib=stdc++");
-    } else if env::var("CARGO_CFG_TARGET_OS").as_deref() == Ok("macos") {
-        println!("cargo:rustc-link-lib=c++");
+    let target_os = env::var("CARGO_CFG_TARGET_OS").unwrap_or_default();
+    match target_os.as_str() {
+        "linux" => {
+            println!("cargo:rustc-link-arg=-Wl,-rpath,{}", lib_dir.display());
+            println!("cargo:rustc-link-lib=stdc++");
+        }
+        "macos" => {
+            println!("cargo:rustc-link-arg=-Wl,-rpath,{}", lib_dir.display());
+            println!("cargo:rustc-link-lib=c++");
+        }
+        _ => {}
     }
 }

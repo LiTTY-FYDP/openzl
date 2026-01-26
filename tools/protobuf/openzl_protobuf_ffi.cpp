@@ -279,6 +279,17 @@ int openzl_protobuf_train(
         size_t samples_len,
         OpenZLBuffer* out_compressor)
 {
+    return openzl_protobuf_train_with_params(
+            ctx, samples, samples_len, nullptr, out_compressor);
+}
+
+int openzl_protobuf_train_with_params(
+        OpenZLProtobufContext* ctx,
+        const OpenZLBuffer* samples,
+        size_t samples_len,
+        const OpenZLProtobufTrainParams* params,
+        OpenZLBuffer* out_compressor)
+{
     if (!ensureReady(ctx)) {
         return 0;
     }
@@ -313,11 +324,45 @@ int openzl_protobuf_train(
         }
 
         auto compressor = ctx->serializer.getCompressor();
-        openzl::training::TrainParams params;
-        params.noAceSuccessors = true;
+        openzl::training::TrainParams trainParams;
+        trainParams.noAceSuccessors = true;
+        trainParams.noClustering = false;
+        if (params) {
+            if (params->has_threads) {
+                trainParams.threads = params->threads;
+            }
+            if (params->has_clustering_trainer) {
+                switch (params->clustering_trainer) {
+                    case OPENZL_PROTOBUF_CLUSTERING_TRAINER_GREEDY:
+                        trainParams.clusteringTrainer =
+                                openzl::training::ClusteringTrainer::Greedy;
+                        break;
+                    case OPENZL_PROTOBUF_CLUSTERING_TRAINER_BOTTOM_UP:
+                        trainParams.clusteringTrainer =
+                                openzl::training::ClusteringTrainer::BottomUp;
+                        break;
+                    case OPENZL_PROTOBUF_CLUSTERING_TRAINER_FULL_SPLIT:
+                        trainParams.clusteringTrainer =
+                                openzl::training::ClusteringTrainer::FullSplit;
+                        break;
+                    default:
+                        setError(ctx, "Unknown clustering trainer.");
+                        return 0;
+                }
+            }
+            if (params->has_max_time_secs) {
+                trainParams.maxTimeSecs = params->max_time_secs;
+            }
+            if (params->has_no_ace_successors) {
+                trainParams.noAceSuccessors = params->no_ace_successors != 0;
+            }
+            if (params->has_no_clustering) {
+                trainParams.noClustering = params->no_clustering != 0;
+            }
+        }
 
         auto serialized =
-                openzl::training::trainClusteringGraph(inputs, *compressor, params);
+                openzl::training::trainClusteringGraph(inputs, *compressor, trainParams);
         if (!serialized) {
             setError(ctx, "Training returned no compressors.");
             return 0;
