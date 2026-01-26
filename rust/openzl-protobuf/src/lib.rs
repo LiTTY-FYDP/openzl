@@ -11,16 +11,16 @@ struct OpenZLProtobufContext {
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 enum OpenZLProtobufSchemaType {
-    OpenZlProtobufSchemaProto = 0,
-    OpenZlProtobufSchemaDescriptor = 1,
+    Proto = 0,
+    Descriptor = 1,
 }
 
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 enum OpenZLProtobufClusteringTrainer {
-    OpenZlProtobufClusteringTrainerGreedy = 0,
-    OpenZlProtobufClusteringTrainerBottomUp = 1,
-    OpenZlProtobufClusteringTrainerFullSplit = 2,
+    Greedy = 0,
+    BottomUp = 1,
+    FullSplit = 2,
 }
 
 #[repr(C)]
@@ -46,6 +46,7 @@ struct OpenZLProtobufParetoResult {
     compression_ratio: f64,
     compression_speed: f64,
     decompression_speed: f64,
+    compressor: OpenZLBuffer,
 }
 
 #[repr(C)]
@@ -107,7 +108,10 @@ extern "C" {
         out_results_len: *mut usize,
     ) -> i32;
     fn openzl_protobuf_free_buffer(buffer: *mut OpenZLBuffer);
-    fn openzl_protobuf_free_pareto_results(results: *mut OpenZLProtobufParetoResult);
+    fn openzl_protobuf_free_pareto_results(
+        results: *mut OpenZLProtobufParetoResult,
+        results_len: usize,
+    );
 }
 
 /// Protobuf schema descriptor for OpenZL bindings.
@@ -134,6 +138,8 @@ pub enum Schema {
 pub struct ParetoCompressor {
     /// Index of the compressor in the Pareto frontier output.
     pub index: usize,
+    /// Serialized compressor data.
+    pub compressor: Vec<u8>,
     /// Compression ratio (higher is better).
     pub compression_ratio: f64,
     /// Compression throughput in MB/s.
@@ -182,13 +188,13 @@ fn build_train_params(params: TrainParams) -> OpenZLProtobufTrainParams {
             .unwrap_or(ClusteringTrainer::Greedy)
         {
             ClusteringTrainer::Greedy => {
-                OpenZLProtobufClusteringTrainer::OpenZlProtobufClusteringTrainerGreedy
+                OpenZLProtobufClusteringTrainer::Greedy
             }
             ClusteringTrainer::BottomUp => {
-                OpenZLProtobufClusteringTrainer::OpenZlProtobufClusteringTrainerBottomUp
+                OpenZLProtobufClusteringTrainer::BottomUp
             }
             ClusteringTrainer::FullSplit => {
-                OpenZLProtobufClusteringTrainer::OpenZlProtobufClusteringTrainerFullSplit
+                OpenZLProtobufClusteringTrainer::FullSplit
             }
         },
         has_max_time_secs: params.max_time_secs.is_some() as u8,
@@ -259,13 +265,13 @@ impl OpenZLProtobuf {
                 message_type,
                 proto_paths,
             } => (
-                OpenZLProtobufSchemaType::OpenZlProtobufSchemaProto,
+            OpenZLProtobufSchemaType::Proto,
                 path,
                 message_type,
                 proto_paths,
             ),
             Schema::Descriptor { path, message_type } => (
-                OpenZLProtobufSchemaType::OpenZlProtobufSchemaDescriptor,
+            OpenZLProtobufSchemaType::Descriptor,
                 path,
                 message_type,
                 Vec::new(),
@@ -477,13 +483,21 @@ impl OpenZLProtobuf {
             .iter()
             .map(|entry| ParetoCompressor {
                 index: entry.index,
+                compressor: unsafe {
+                    if entry.compressor.len == 0 || entry.compressor.data.is_null() {
+                        Vec::new()
+                    } else {
+                        std::slice::from_raw_parts(entry.compressor.data, entry.compressor.len)
+                            .to_vec()
+                    }
+                },
                 compression_ratio: entry.compression_ratio,
                 compression_speed: entry.compression_speed,
                 decompression_speed: entry.decompression_speed,
             })
             .collect::<Vec<_>>();
 
-        unsafe { openzl_protobuf_free_pareto_results(results_ptr) };
+        unsafe { openzl_protobuf_free_pareto_results(results_ptr, results_len) };
         Ok(results)
     }
 

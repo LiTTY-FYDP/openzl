@@ -51,6 +51,7 @@ typedef struct OpenZLProtobufParetoResult {
     double compression_ratio;
     double compression_speed;
     double decompression_speed;
+    OpenZLBuffer compressor;
 } OpenZLProtobufParetoResult;
 
 OpenZLProtobufContext* openzl_protobuf_create(
@@ -92,7 +93,9 @@ int openzl_protobuf_train_pareto(
         size_t* out_results_len);
 
 void openzl_protobuf_free_buffer(OpenZLBuffer* buffer);
-void openzl_protobuf_free_pareto_results(OpenZLProtobufParetoResult* results);
+void openzl_protobuf_free_pareto_results(
+        OpenZLProtobufParetoResult* results,
+        size_t results_len);
 
 #ifdef __cplusplus
 }

@@ -7,6 +7,7 @@
 #include <memory>
 #include <new>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "custom_parsers/dependency_registration.h"
@@ -76,6 +77,35 @@ bool ensureReady(OpenZLProtobufContext* ctx)
 bool copyToBuffer(
         OpenZLProtobufContext* ctx,
         const std::string& data,
+        OpenZLBuffer* out)
+{
+    if (!out) {
+        setError(ctx, "Output buffer is null.");
+        return false;
+    }
+
+    out->data = nullptr;
+    out->len  = 0;
+
+    if (data.empty()) {
+        return true;
+    }
+
+    auto* buffer = new (std::nothrow) uint8_t[data.size()];
+    if (!buffer) {
+        setError(ctx, "Failed to allocate output buffer.");
+        return false;
+    }
+
+    std::memcpy(buffer, data.data(), data.size());
+    out->data = buffer;
+    out->len  = data.size();
+    return true;
+}
+
+bool copyToBufferView(
+        OpenZLProtobufContext* ctx,
+        std::string_view data,
         OpenZLBuffer* out)
 {
     if (!out) {
@@ -564,11 +594,21 @@ int openzl_protobuf_train_pareto(
             auto resultCompressor =
                     openzl::custom_parsers::createCompressorFromSerialized(*serialized);
             auto metrics = benchmarkCompressor(inputs, *resultCompressor);
+            OpenZLBuffer compressorBuffer{};
+            if (!copyToBufferView(ctx, *serialized, &compressorBuffer)) {
+                for (auto& result : results) {
+                    delete[] result.compressor.data;
+                    result.compressor.data = nullptr;
+                    result.compressor.len  = 0;
+                }
+                return 0;
+            }
             results.push_back(OpenZLProtobufParetoResult{
                     .index              = i,
                     .compression_ratio  = metrics.compressionRatio,
                     .compression_speed  = metrics.compressionSpeed,
                     .decompression_speed = metrics.decompressionSpeed,
+                    .compressor         = compressorBuffer,
             });
         }
 
@@ -611,7 +651,17 @@ void openzl_protobuf_free_buffer(OpenZLBuffer* buffer)
     buffer->len  = 0;
 }
 
-void openzl_protobuf_free_pareto_results(OpenZLProtobufParetoResult* results)
+void openzl_protobuf_free_pareto_results(
+        OpenZLProtobufParetoResult* results,
+        size_t results_len)
 {
+    if (!results) {
+        return;
+    }
+    for (size_t i = 0; i < results_len; ++i) {
+        delete[] results[i].compressor.data;
+        results[i].compressor.data = nullptr;
+        results[i].compressor.len  = 0;
+    }
     delete[] results;
 }
