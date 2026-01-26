@@ -46,6 +46,13 @@ typedef struct OpenZLProtobufTrainParams {
     uint8_t no_clustering;
 } OpenZLProtobufTrainParams;
 
+typedef struct OpenZLProtobufParetoResult {
+    size_t index;
+    double compression_ratio;
+    double compression_speed;
+    double decompression_speed;
+} OpenZLProtobufParetoResult;
+
 OpenZLProtobufContext* openzl_protobuf_create(
         const OpenZLProtobufSchema* schema);
 void openzl_protobuf_destroy(OpenZLProtobufContext* ctx);
@@ -76,8 +83,16 @@ int openzl_protobuf_train_with_params(
         size_t samples_len,
         const OpenZLProtobufTrainParams* params,
         OpenZLBuffer* out_compressor);
+int openzl_protobuf_train_pareto(
+        OpenZLProtobufContext* ctx,
+        const OpenZLBuffer* samples,
+        size_t samples_len,
+        const OpenZLProtobufTrainParams* params,
+        OpenZLProtobufParetoResult** out_results,
+        size_t* out_results_len);
 
 void openzl_protobuf_free_buffer(OpenZLBuffer* buffer);
+void openzl_protobuf_free_pareto_results(OpenZLProtobufParetoResult* results);
 
 #ifdef __cplusplus
 }

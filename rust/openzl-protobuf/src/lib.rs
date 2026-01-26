@@ -41,6 +41,15 @@ struct OpenZLBuffer {
 
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
+struct OpenZLProtobufParetoResult {
+    index: usize,
+    compression_ratio: f64,
+    compression_speed: f64,
+    decompression_speed: f64,
+}
+
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
 struct OpenZLProtobufTrainParams {
     has_threads: u8,
     threads: u32,
@@ -89,7 +98,16 @@ extern "C" {
         params: *const OpenZLProtobufTrainParams,
         out_compressor: *mut OpenZLBuffer,
     ) -> i32;
+    fn openzl_protobuf_train_pareto(
+        ctx: *mut OpenZLProtobufContext,
+        samples: *const OpenZLBuffer,
+        samples_len: usize,
+        params: *const OpenZLProtobufTrainParams,
+        out_results: *mut *mut OpenZLProtobufParetoResult,
+        out_results_len: *mut usize,
+    ) -> i32;
     fn openzl_protobuf_free_buffer(buffer: *mut OpenZLBuffer);
+    fn openzl_protobuf_free_pareto_results(results: *mut OpenZLProtobufParetoResult);
 }
 
 /// Protobuf schema descriptor for OpenZL bindings.
@@ -109,6 +127,19 @@ pub enum Schema {
     /// `path` is passed directly to the filesystem, so it can be absolute or
     /// relative to the current working directory.
     Descriptor { path: String, message_type: String },
+}
+
+/// Pareto frontier training result for a compressor.
+#[derive(Debug, Clone)]
+pub struct ParetoCompressor {
+    /// Index of the compressor in the Pareto frontier output.
+    pub index: usize,
+    /// Compression ratio (higher is better).
+    pub compression_ratio: f64,
+    /// Compression throughput in MB/s.
+    pub compression_speed: f64,
+    /// Decompression throughput in MB/s.
+    pub decompression_speed: f64,
 }
 
 /// Training algorithm selection for clustering graphs.
@@ -138,6 +169,34 @@ impl Default for TrainParams {
             no_ace_successors: true,
             no_clustering: false,
         }
+    }
+}
+
+fn build_train_params(params: TrainParams) -> OpenZLProtobufTrainParams {
+    OpenZLProtobufTrainParams {
+        has_threads: params.threads.is_some() as u8,
+        threads: params.threads.unwrap_or_default(),
+        has_clustering_trainer: params.clustering_trainer.is_some() as u8,
+        clustering_trainer: match params
+            .clustering_trainer
+            .unwrap_or(ClusteringTrainer::Greedy)
+        {
+            ClusteringTrainer::Greedy => {
+                OpenZLProtobufClusteringTrainer::OpenZlProtobufClusteringTrainerGreedy
+            }
+            ClusteringTrainer::BottomUp => {
+                OpenZLProtobufClusteringTrainer::OpenZlProtobufClusteringTrainerBottomUp
+            }
+            ClusteringTrainer::FullSplit => {
+                OpenZLProtobufClusteringTrainer::OpenZlProtobufClusteringTrainerFullSplit
+            }
+        },
+        has_max_time_secs: params.max_time_secs.is_some() as u8,
+        max_time_secs: params.max_time_secs.unwrap_or_default(),
+        has_no_ace_successors: 1,
+        no_ace_successors: params.no_ace_successors as u8,
+        has_no_clustering: 1,
+        no_clustering: params.no_clustering as u8,
     }
 }
 
@@ -357,29 +416,7 @@ impl OpenZLProtobuf {
             })
             .collect();
 
-        let ffi_params = OpenZLProtobufTrainParams {
-            has_threads: params.threads.is_some() as u8,
-            threads: params.threads.unwrap_or_default(),
-            has_clustering_trainer: params.clustering_trainer.is_some() as u8,
-            clustering_trainer: match params.clustering_trainer.unwrap_or(ClusteringTrainer::Greedy)
-            {
-                ClusteringTrainer::Greedy => {
-                    OpenZLProtobufClusteringTrainer::OpenZlProtobufClusteringTrainerGreedy
-                }
-                ClusteringTrainer::BottomUp => {
-                    OpenZLProtobufClusteringTrainer::OpenZlProtobufClusteringTrainerBottomUp
-                }
-                ClusteringTrainer::FullSplit => {
-                    OpenZLProtobufClusteringTrainer::OpenZlProtobufClusteringTrainerFullSplit
-                }
-            },
-            has_max_time_secs: params.max_time_secs.is_some() as u8,
-            max_time_secs: params.max_time_secs.unwrap_or_default(),
-            has_no_ace_successors: 1,
-            no_ace_successors: params.no_ace_successors as u8,
-            has_no_clustering: 1,
-            no_clustering: params.no_clustering as u8,
-        };
+        let ffi_params = build_train_params(params);
 
         let mut out = OpenZLBuffer {
             data: std::ptr::null_mut(),
@@ -398,6 +435,56 @@ impl OpenZLProtobuf {
             return Err(self.error_from_last("Training failed."));
         }
         Ok(unsafe { take_buffer(out) })
+    }
+
+    /// Train a Pareto frontier of compressors and benchmark them.
+    pub fn train_pareto_frontier(
+        &self,
+        samples: &[&[u8]],
+        params: TrainParams,
+    ) -> Result<Vec<ParetoCompressor>, Error> {
+        if samples.is_empty() {
+            return Err(Error::new("Training samples are empty."));
+        }
+
+        let buffers: Vec<OpenZLBuffer> = samples
+            .iter()
+            .map(|sample| OpenZLBuffer {
+                data: sample.as_ptr() as *mut u8,
+                len: sample.len(),
+            })
+            .collect();
+
+        let ffi_params = build_train_params(params);
+
+        let mut results_ptr: *mut OpenZLProtobufParetoResult = std::ptr::null_mut();
+        let mut results_len: usize = 0;
+        let ok = unsafe {
+            openzl_protobuf_train_pareto(
+                self.ctx.as_ptr(),
+                buffers.as_ptr(),
+                buffers.len(),
+                &ffi_params,
+                &mut results_ptr,
+                &mut results_len,
+            )
+        };
+        if ok != 1 {
+            return Err(self.error_from_last("Pareto frontier training failed."));
+        }
+
+        let results = unsafe { std::slice::from_raw_parts(results_ptr, results_len) }
+            .iter()
+            .map(|entry| ParetoCompressor {
+                index: entry.index,
+                compression_ratio: entry.compression_ratio,
+                compression_speed: entry.compression_speed,
+                decompression_speed: entry.decompression_speed,
+            })
+            .collect::<Vec<_>>();
+
+        unsafe { openzl_protobuf_free_pareto_results(results_ptr) };
+        Ok(results)
     }
 
     fn last_error(&self) -> String {
