@@ -14,6 +14,7 @@ option(OPENZL_BUILD_ALL "Build all optional components" OFF)
 option(OPENZL_BUILD_SHARED_LIBS "Build as shared library" OFF)
 option(OPENZL_BUILD_TESTS "Build tests" ${OPENZL_BUILD_ALL})
 option(OPENZL_BUILD_BENCHMARKS "Build benchmarks" ${OPENZL_BUILD_ALL})
+option(OPENZL_BUILD_PROTOBUF_TOOLS "Build protobuf tools and libraries" ${OPENZL_BUILD_ALL})
 # Apache Arrow build is broken due to missing thrift download.
 # See https://github.com/apache/arrow/issues/46740.
 # One that is resolved, this can default to ${OPENZL_BUILD_ALL}.

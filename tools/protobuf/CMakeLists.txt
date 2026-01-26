@@ -27,6 +27,7 @@ if (OPENZL_BUILD_PROTOBUF_TOOLS)
         "${CMAKE_CURRENT_SOURCE_DIR}/*.cpp"
     )
     list(REMOVE_ITEM protobuf_serializer_sources "${CMAKE_CURRENT_SOURCE_DIR}/cli.cpp")
+    list(REMOVE_ITEM protobuf_serializer_sources "${CMAKE_CURRENT_SOURCE_DIR}/openzl_protobuf_ffi.cpp")
 
     add_library(protobuf_serializer ${protobuf_serializer_sources})
 
@@ -36,6 +37,19 @@ if (OPENZL_BUILD_PROTOBUF_TOOLS)
         protobuf::libprotoc
     )
     apply_openzl_compile_options_to_target(protobuf_serializer)
+
+    # Make the protobuf FFI library
+    add_library(openzl_protobuf_ffi SHARED
+        "${CMAKE_CURRENT_SOURCE_DIR}/openzl_protobuf_ffi.cpp"
+    )
+    set_property(TARGET openzl_protobuf_ffi PROPERTY POSITION_INDEPENDENT_CODE ON)
+    target_include_directories(openzl_protobuf_ffi PRIVATE ${PROJECT_SOURCE_DIR})
+    target_link_libraries(openzl_protobuf_ffi PRIVATE
+        protobuf_serializer
+        tools_training
+        custom_parsers
+    )
+    apply_openzl_compile_options_to_target(openzl_protobuf_ffi)
 
     # Make the protobuf_cli tool
     file(GLOB protobuf_cli_sources CONFIGURE_DEPENDS
@@ -56,6 +70,13 @@ if (OPENZL_BUILD_PROTOBUF_TOOLS)
     target_include_directories(protobuf_cli PRIVATE ${PROJECT_BINARY_DIR})
 
     apply_openzl_compile_options_to_target(protobuf_cli)
+
+    if (OPENZL_INSTALL)
+        install(TARGETS openzl_protobuf_ffi
+            RUNTIME DESTINATION ${OPENZL_INSTALL_BINDIR}
+            LIBRARY DESTINATION ${OPENZL_INSTALL_LIBDIR}
+            ARCHIVE DESTINATION ${OPENZL_INSTALL_LIBDIR})
+    endif()
 
     # Build tests if enabled
     if(OPENZL_BUILD_TESTS)
