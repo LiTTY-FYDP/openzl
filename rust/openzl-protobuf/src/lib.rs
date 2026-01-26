@@ -169,18 +169,23 @@ impl OpenZLProtobuf {
         };
 
         let ctx = unsafe { openzl_protobuf_create(&schema) };
-        let ctx = NonNull::new(ctx).ok_or_else(|| {
-            Error::new("Failed to create OpenZL protobuf context.")
-        })?;
+        let ctx = NonNull::new(ctx)
+            .ok_or_else(|| Error::new("Failed to create OpenZL protobuf context."))?;
 
-        let handle = Self { ctx };
-        let last_error = handle.last_error();
+        let last_error = unsafe {
+            let ptr = openzl_protobuf_last_error(ctx.as_ptr());
+            if ptr.is_null() {
+                "Unknown OpenZL error.".to_string()
+            } else {
+                CStr::from_ptr(ptr).to_string_lossy().into_owned()
+            }
+        };
         if !last_error.is_empty() {
-            unsafe { openzl_protobuf_destroy(handle.ctx.as_ptr()) };
+            unsafe { openzl_protobuf_destroy(ctx.as_ptr()) };
             return Err(Error::new(last_error));
         }
 
-        Ok(handle)
+        Ok(Self { ctx })
     }
 
     /// Load a serialized compressor into the OpenZL encoder.
