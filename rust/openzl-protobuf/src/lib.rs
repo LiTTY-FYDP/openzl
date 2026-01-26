@@ -65,12 +65,19 @@ extern "C" {
 /// Protobuf schema descriptor for OpenZL bindings.
 pub enum Schema {
     /// Load schema from a .proto file and optional include paths.
+    ///
+    /// `path` is resolved via the `proto_paths` roots (like `protoc --proto_path`),
+    /// so it should be relative to one of those directories rather than an
+    /// absolute filesystem path.
     Proto {
         path: String,
         message_type: String,
         proto_paths: Vec<String>,
     },
     /// Load schema from a compiled descriptor (.desc) file.
+    ///
+    /// `path` is passed directly to the filesystem, so it can be absolute or
+    /// relative to the current working directory.
     Descriptor { path: String, message_type: String },
 }
 
