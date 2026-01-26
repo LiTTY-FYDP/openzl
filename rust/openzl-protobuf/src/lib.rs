@@ -4,7 +4,9 @@ use std::os::raw::c_char;
 use std::ptr::NonNull;
 
 #[repr(C)]
-struct OpenZLProtobufContext;
+struct OpenZLProtobufContext {
+    _private: [u8; 0],
+}
 
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
