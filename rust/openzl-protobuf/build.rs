@@ -10,8 +10,7 @@ fn run_command(cmd: &mut Command) {
 }
 
 fn main() {
-    let manifest_dir =
-        PathBuf::from(env::var("CARGO_MANIFEST_DIR").expect("missing manifest"));
+    let manifest_dir = PathBuf::from(env::var("CARGO_MANIFEST_DIR").expect("missing manifest"));
     let root_dir = manifest_dir
         .join("../..")
         .canonicalize()
@@ -68,10 +67,7 @@ fn main() {
         .arg("-DOPENZL_INSTALL=ON")
         .arg("-DOPENZL_CPP_INSTALL=ON")
         .arg("-DCMAKE_POSITION_INDEPENDENT_CODE=ON")
-        .arg(format!(
-            "-DCMAKE_INSTALL_PREFIX={}",
-            install_dir.display()
-        ));
+        .arg(format!("-DCMAKE_INSTALL_PREFIX={}", install_dir.display()));
     run_command(&mut cmake_config);
 
     let mut cmake_build = Command::new("cmake");
@@ -80,6 +76,11 @@ fn main() {
         .arg(&build_dir)
         .arg("--target")
         .arg("install");
+    if let Ok(parallelism) = std::thread::available_parallelism() {
+        cmake_build
+            .arg("--parallel")
+            .arg(parallelism.get().to_string());
+    }
     if env::var("CARGO_CFG_TARGET_OS").as_deref() == Ok("windows") {
         cmake_build.arg("--config").arg(build_type);
     }
@@ -90,15 +91,9 @@ fn main() {
     println!("cargo:rustc-link-lib=dylib=openzl_protobuf_ffi");
 
     if env::var("CARGO_CFG_TARGET_OS").as_deref() == Ok("linux") {
-        println!(
-            "cargo:rustc-link-arg=-Wl,-rpath,{}",
-            lib_dir.display()
-        );
+        println!("cargo:rustc-link-arg=-Wl,-rpath,{}", lib_dir.display());
     } else if env::var("CARGO_CFG_TARGET_OS").as_deref() == Ok("macos") {
-        println!(
-            "cargo:rustc-link-arg=-Wl,-rpath,{}",
-            lib_dir.display()
-        );
+        println!("cargo:rustc-link-arg=-Wl,-rpath,{}", lib_dir.display());
     }
 
     if env::var("CARGO_CFG_TARGET_OS").as_deref() == Ok("linux") {
