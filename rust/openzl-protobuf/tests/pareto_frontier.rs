@@ -30,6 +30,14 @@ fn sample_message() -> TestMessage {
     }
 }
 
+fn sample_message_2() -> TestMessage {
+    TestMessage {
+        id: 123_456_789,
+        name: "lorum ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore magna aliqua".to_string(),
+        values: vec![0, -1, 2, -3, 4, -5, 6, -7, 8, -9, 10, -11, 12, -13, 14, -15, 16, -17, 18, -19, 20],
+    }
+}
+
 fn assert_sorted_by_ratio(results: &[ParetoCompressor]) {
     for window in results.windows(2) {
         assert!(
@@ -44,14 +52,15 @@ fn train_pareto_frontier_metrics() -> Result<(), Box<dyn std::error::Error>> {
     let zl = OpenZLProtobuf::new(schema())?;
     let message = sample_message();
     let sample = message.encode_to_vec();
-    let samples = [&sample[..], &sample[..], &sample[..]];
+    let sample_2 = sample_message_2().encode_to_vec();
+    let samples = [&sample[..], &sample_2[..]];
 
     let params = TrainParams {
         threads: None,
-        clustering_trainer: Some(ClusteringTrainer::FullSplit),
+        clustering_trainer: Some(ClusteringTrainer::BottomUp),
         max_time_secs: Some(2),
-        no_ace_successors: true,
-        no_clustering: false,
+        ace_successors: true,
+        clustering: true,
     };
 
     let results = zl.train_pareto_frontier(&samples, params)?;

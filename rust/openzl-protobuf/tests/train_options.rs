@@ -41,8 +41,8 @@ fn train_with_options_round_trip() -> Result<(), Box<dyn std::error::Error>> {
         threads: Some(1),
         clustering_trainer: Some(ClusteringTrainer::Greedy),
         max_time_secs: Some(1),
-        no_ace_successors: true,
-        no_clustering: false,
+        ace_successors: false,
+        clustering: true,
     };
 
     let compressor = zl.train_compressor_with_params(&samples, params)?;

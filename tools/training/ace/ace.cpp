@@ -176,12 +176,12 @@ std::vector<SerializedCompressorInternal> ACETrainer::train(
 
     size_t graphIdx        = 0;
     const size_t numGraphs = autoBackendGraphs.size();
+    bool trainedGraph      = false;
+    size_t skippedGraphs   = 0;
     for (const auto& backendGraph : autoBackendGraphs) {
         ++graphIdx;
-        // Skip graphs with no training samples (e.g., optional fields that
-        // aren't present in the training data). These will use default
-        // compression.
-        if (samples[backendGraph].empty()) {
+        auto& graphSamples = samples[backendGraph];
+        if (graphSamples.empty()) {
             Logger::log(
                     VERBOSE1,
                     "Skipping ACE graph ",
@@ -191,10 +191,11 @@ std::vector<SerializedCompressorInternal> ACETrainer::train(
                     " (",
                     backendGraph,
                     "): no training samples");
+            skippedGraphs += 1;
             continue;
         }
         auto aceState = trainBackend(
-                samples[backendGraph], trainParams, graphIdx, numGraphs);
+                graphSamples, trainParams, graphIdx, numGraphs);
         auto localParams = LocalParams();
         localParams.addCopyParam(
                 AutomatedCompressorExplorer::kAceStateParamId,
@@ -215,8 +216,22 @@ std::vector<SerializedCompressorInternal> ACETrainer::train(
                 ZL_Compressor_overrideGraphParams(
                         compressor.get(), backendGraphID, &gp),
                 "Graph replacement failed");
+        trainedGraph = true;
     }
-    checkPoint_.emplace(compressor.serialize());
+    if (skippedGraphs > 0) {
+        Logger::log(
+                VERBOSE1,
+                "Skipped ",
+                skippedGraphs,
+                " ACE graphs with no samples.");
+    }
+    auto serializedCheckpoint = compressor.serialize();
+    checkPoint_.emplace(std::string(serializedCheckpoint));
+    if (!trainedGraph) {
+        std::vector<SerializedCompressorInternal> result;
+        result.emplace_back(std::move(serializedCheckpoint));
+        return result;
+    }
     return getCombinedCompressors(inputs, *checkPoint_, trainParams);
 }
 } // namespace openzl::training

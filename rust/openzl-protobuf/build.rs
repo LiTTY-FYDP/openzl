@@ -28,6 +28,16 @@ fn main() {
             .join("tools/protobuf/openzl_protobuf_ffi.h")
             .display()
     );
+    println!(
+        "cargo:rerun-if-changed={}",
+        root_dir.join("tools/training/ace/ace.cpp").display()
+    );
+    println!(
+        "cargo:rerun-if-changed={}",
+        root_dir
+            .join("tools/training/ace/ace_combination.cpp")
+            .display()
+    );
 
     let profile = env::var("PROFILE").unwrap_or_else(|_| "release".to_string());
     let build_type = if profile == "release" {

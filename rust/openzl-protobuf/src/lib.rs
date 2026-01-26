@@ -17,9 +17,16 @@ enum OpenZLProtobufSchemaType {
 
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
+/// Clustering trainer selection for training compressed protobufs.
 enum OpenZLProtobufClusteringTrainer {
+    /// Greedy search from "group by type" clustering; best when inputs
+    /// are broadly correlated and type-based clustering is a good start.
     Greedy = 0,
+    /// Bottom-up merge from a full split; accepts merges that improve
+    /// compression ratio, for partially correlated inputs.
     BottomUp = 1,
+    /// Full split with per-input best successor; for mostly independent inputs
+    /// and a lightweight baseline.
     FullSplit = 2,
 }
 
@@ -162,8 +169,8 @@ pub struct TrainParams {
     pub threads: Option<u32>,
     pub clustering_trainer: Option<ClusteringTrainer>,
     pub max_time_secs: Option<usize>,
-    pub no_ace_successors: bool,
-    pub no_clustering: bool,
+    pub ace_successors: bool,
+    pub clustering: bool,
 }
 
 impl Default for TrainParams {
@@ -172,8 +179,8 @@ impl Default for TrainParams {
             threads: None,
             clustering_trainer: None,
             max_time_secs: None,
-            no_ace_successors: true,
-            no_clustering: false,
+            ace_successors: false,
+            clustering: true,
         }
     }
 }
@@ -200,9 +207,9 @@ fn build_train_params(params: TrainParams) -> OpenZLProtobufTrainParams {
         has_max_time_secs: params.max_time_secs.is_some() as u8,
         max_time_secs: params.max_time_secs.unwrap_or_default(),
         has_no_ace_successors: 1,
-        no_ace_successors: params.no_ace_successors as u8,
+        no_ace_successors: (!params.ace_successors) as u8,
         has_no_clustering: 1,
-        no_clustering: params.no_clustering as u8,
+        no_clustering: (!params.clustering) as u8,
     }
 }
 
