@@ -1,13 +1,5 @@
 use std::env;
 use std::path::PathBuf;
-use std::process::Command;
-
-fn run_command(cmd: &mut Command) {
-    let status = cmd.status().expect("failed to spawn command");
-    if !status.success() {
-        panic!("command failed with status: {}", status);
-    }
-}
 
 fn main() {
     let manifest_dir = PathBuf::from(env::var("CARGO_MANIFEST_DIR").expect("missing manifest"));
@@ -37,10 +29,6 @@ fn main() {
             .display()
     );
 
-    let out_dir = PathBuf::from(env::var("OUT_DIR").expect("missing OUT_DIR"));
-    let build_dir = out_dir.join("openzl-build");
-    let install_dir = out_dir.join("openzl-install");
-
     let profile = env::var("PROFILE").unwrap_or_else(|_| "release".to_string());
     let build_type = if profile == "release" {
         "Release"
@@ -48,45 +36,30 @@ fn main() {
         "Debug"
     };
 
-    let mut cmake_config = Command::new("cmake");
+    let mut cmake_config = cmake::Config::new(&root_dir);
     cmake_config
-        .arg("-S")
-        .arg(&root_dir)
-        .arg("-B")
-        .arg(&build_dir)
-        .arg(format!("-DCMAKE_BUILD_TYPE={}", build_type))
-        .arg("-DOPENZL_BUILD_PROTOBUF_TOOLS=ON")
-        .arg("-DOPENZL_BUILD_BENCHMARKS=OFF")
-        .arg("-DOPENZL_BUILD_TESTS=OFF")
-        .arg("-DOPENZL_BUILD_CLI=OFF")
-        .arg("-DOPENZL_BUILD_LOGGER=ON")
-        .arg("-DOPENZL_BUILD_EXAMPLES=OFF")
-        .arg("-DOPENZL_BUILD_PYTHON_EXT=OFF")
-        .arg("-DOPENZL_BUILD_PYTHON_EXT_TESTS=OFF")
-        .arg("-DOPENZL_BUILD_PYTHON_DEMO=OFF")
-        .arg("-DOPENZL_INSTALL=ON")
-        .arg("-DOPENZL_CPP_INSTALL=ON")
-        .arg("-DCMAKE_POSITION_INDEPENDENT_CODE=ON")
-        .arg(format!("-DCMAKE_INSTALL_PREFIX={}", install_dir.display()));
-    run_command(&mut cmake_config);
-
-    let mut cmake_build = Command::new("cmake");
-    cmake_build
-        .arg("--build")
-        .arg(&build_dir)
-        .arg("--target")
-        .arg("install");
+        .profile(build_type)
+        .define("OPENZL_BUILD_PROTOBUF_TOOLS", "ON")
+        .define("OPENZL_BUILD_BENCHMARKS", "OFF")
+        .define("OPENZL_BUILD_TESTS", "OFF")
+        .define("OPENZL_BUILD_CLI", "OFF")
+        .define("OPENZL_BUILD_LOGGER", "ON")
+        .define("OPENZL_BUILD_EXAMPLES", "OFF")
+        .define("OPENZL_BUILD_PYTHON_EXT", "OFF")
+        .define("OPENZL_BUILD_PYTHON_EXT_TESTS", "OFF")
+        .define("OPENZL_BUILD_PYTHON_DEMO", "OFF")
+        .define("OPENZL_INSTALL", "ON")
+        .define("OPENZL_CPP_INSTALL", "ON")
+        .define("CMAKE_POSITION_INDEPENDENT_CODE", "ON");
     if let Ok(parallelism) = std::thread::available_parallelism() {
-        cmake_build
-            .arg("--parallel")
-            .arg(parallelism.get().to_string());
+        cmake_config.env(
+            "CMAKE_BUILD_PARALLEL_LEVEL",
+            parallelism.get().to_string(),
+        );
     }
-    if env::var("CARGO_CFG_TARGET_OS").as_deref() == Ok("windows") {
-        cmake_build.arg("--config").arg(build_type);
-    }
-    run_command(&mut cmake_build);
+    let dst = cmake_config.build();
 
-    let lib_dir = install_dir.join("lib");
+    let lib_dir = dst.join("lib");
     println!("cargo:rustc-link-search=native={}", lib_dir.display());
     println!("cargo:rustc-link-lib=dylib=openzl_protobuf_ffi");
 

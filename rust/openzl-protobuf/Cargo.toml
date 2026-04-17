@@ -12,3 +12,5 @@ build = "build.rs"
 [dev-dependencies]
 prost = "0.14.3"
 
+[build-dependencies]
+cmake = "0.1.57"
