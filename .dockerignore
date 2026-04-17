@@ -3,3 +3,11 @@
 .vscode
 build
 cmakebuild
+target
+**/target
+node_modules
+**/node_modules
+.venv
+**/.venv
+__pycache__
+**/__pycache__
