@@ -1,5 +1,31 @@
 use std::env;
-use std::path::PathBuf;
+use std::fs::read_to_string;
+use std::path::{Path, PathBuf};
+use std::process::{Command, Stdio};
+
+fn command_succeeds(command: &str) -> bool {
+    Command::new(command)
+        .arg("--version")
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .status()
+        .is_ok_and(|status| status.success())
+}
+
+fn find_ninja_command() -> Option<&'static str> {
+    ["ninja", "ninja-build"]
+        .into_iter()
+        .find(|command| command_succeeds(command))
+}
+
+fn existing_cmake_generator(out_dir: &Path) -> Option<String> {
+    let cache_path = out_dir.join("build").join("CMakeCache.txt");
+    let contents = read_to_string(cache_path).ok()?;
+    contents.lines().find_map(|line| {
+        line.strip_prefix("CMAKE_GENERATOR:INTERNAL=")
+            .map(ToOwned::to_owned)
+    })
+}
 
 fn main() {
     let manifest_dir = PathBuf::from(env::var("CARGO_MANIFEST_DIR").expect("missing manifest"));
@@ -10,6 +36,8 @@ fn main() {
     let proto_source_enabled = env::var_os("CARGO_FEATURE_PROTO_SOURCE").is_some();
     let training_enabled = env::var_os("CARGO_FEATURE_TRAINING").is_some();
 
+    println!("cargo:rerun-if-env-changed=CMAKE_GENERATOR");
+    println!("cargo:rerun-if-env-changed=PATH");
     println!(
         "cargo:rerun-if-changed={}",
         root_dir.join("CMakeLists.txt").display()
@@ -114,6 +142,14 @@ fn main() {
         } else {
             "openzl_protobuf_core"
         });
+    if env::var_os("CMAKE_GENERATOR").is_none() && existing_cmake_generator(&out_dir).is_none() {
+        if let Some(ninja_command) = find_ninja_command() {
+            cmake_config.generator("Ninja");
+            if ninja_command != "ninja" {
+                cmake_config.define("CMAKE_MAKE_PROGRAM", ninja_command);
+            }
+        }
+    }
     if let Ok(parallelism) = std::thread::available_parallelism() {
         cmake_config.env("CMAKE_BUILD_PARALLEL_LEVEL", parallelism.get().to_string());
     }
