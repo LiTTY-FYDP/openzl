@@ -34,6 +34,7 @@ TEST(TestDescriptorLoader, LoadDescriptorFile)
 
 TEST(TestDescriptorLoader, LoadProtoFile)
 {
+#ifdef OPENZL_PROTOBUF_ENABLE_PROTO_SOURCE
     DescriptorLoader loader;
     auto data_path = getTestDataPath("test_simple.proto");
 
@@ -53,6 +54,9 @@ TEST(TestDescriptorLoader, LoadProtoFile)
     EXPECT_EQ(desc->field_count(), 2);
     EXPECT_EQ(desc->field(0)->name(), "name");
     EXPECT_EQ(desc->field(1)->name(), "value");
+#else
+    GTEST_SKIP() << ".proto source parsing support is disabled";
+#endif
 }
 
 TEST(TestDescriptorLoader, ErrorOnMissingFile)
@@ -64,12 +68,15 @@ TEST(TestDescriptorLoader, ErrorOnMissingFile)
             loader.loadDescriptorFile("/nonexistent/file.desc"),
             std::runtime_error);
 
+#ifdef OPENZL_PROTOBUF_ENABLE_PROTO_SOURCE
     // Test missing proto file
     EXPECT_THROW(loader.loadProtoFile("nonexistent.proto"), std::runtime_error);
+#endif
 }
 
 TEST(TestDescriptorLoader, ProtoWithImports)
 {
+#ifdef OPENZL_PROTOBUF_ENABLE_PROTO_SOURCE
     DescriptorLoader loader;
     auto data_path = getTestDataPath("test_main.proto");
     loader.addProtoPath(data_path.parent_path());
@@ -94,10 +101,14 @@ TEST(TestDescriptorLoader, ProtoWithImports)
     const auto* imported_enum = pool->FindEnumTypeByName("test.ImportedEnum");
     ASSERT_NE(imported_enum, nullptr);
     EXPECT_EQ(imported_enum->value_count(), 3);
+#else
+    GTEST_SKIP() << ".proto source parsing support is disabled";
+#endif
 }
 
 TEST(TestDescriptorLoader, InvalidProtoSyntax)
 {
+#ifdef OPENZL_PROTOBUF_ENABLE_PROTO_SOURCE
     DescriptorLoader loader;
     auto data_path = getTestDataPath("test_invalid.proto");
     loader.addProtoPath(data_path.parent_path());
@@ -105,4 +116,7 @@ TEST(TestDescriptorLoader, InvalidProtoSyntax)
     // Should throw on parse error
     EXPECT_THROW(
             loader.loadProtoFile(data_path.filename()), std::runtime_error);
+#else
+    GTEST_SKIP() << ".proto source parsing support is disabled";
+#endif
 }

@@ -1,25 +1,33 @@
 // Copyright (c) Meta Platforms, Inc. and affiliates.
 #include "tools/protobuf/DescriptorLoader.h"
-#include <google/protobuf/compiler/importer.h>
 #include <google/protobuf/descriptor.h>
 #include <google/protobuf/descriptor.pb.h>
-#include <google/protobuf/io/zero_copy_stream_impl.h>
+#ifdef OPENZL_PROTOBUF_ENABLE_PROTO_SOURCE
+#    include <google/protobuf/compiler/importer.h>
+#endif
 #include <fstream>
+#ifdef OPENZL_PROTOBUF_ENABLE_PROTO_SOURCE
 #include <functional>
 #include <set>
 #include <sstream>
+#endif
 #include <stdexcept>
 
 namespace openzl {
 namespace protobuf {
 
+#ifdef OPENZL_PROTOBUF_ENABLE_PROTO_SOURCE
 DescriptorLoader::DescriptorLoader()
         : error_collector_(std::make_unique<ErrorCollector>())
 {
 }
+#else
+DescriptorLoader::DescriptorLoader() = default;
+#endif
 
 DescriptorLoader::~DescriptorLoader() = default;
 
+#ifdef OPENZL_PROTOBUF_ENABLE_PROTO_SOURCE
 void DescriptorLoader::addProtoPath(const std::string& path)
 {
     proto_paths_.push_back(path);
@@ -98,6 +106,7 @@ DescriptorLoader::loadProtoFile(const std::string& proto_file)
 
     return pool;
 }
+#endif
 
 std::unique_ptr<google::protobuf::DescriptorPool>
 DescriptorLoader::loadDescriptorFile(const std::string& desc_file)

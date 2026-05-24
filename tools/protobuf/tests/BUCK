@@ -42,6 +42,9 @@ zs_unittest(
 zs_unittest(
     name = "test_descriptor_loader",
     srcs = ["test_descriptor_loader.cpp"],
+    compiler_flags = [
+        "-DOPENZL_PROTOBUF_ENABLE_PROTO_SOURCE=1",
+    ],
     deps = [
         "..:utils",
         ":utils",

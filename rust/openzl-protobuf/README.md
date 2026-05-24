@@ -11,20 +11,19 @@ compiled descriptor (`.desc`) files.
 - Protobuf (fetched automatically when building OpenZL)
 - OpenZL dependencies (zstd, lz4, and xgboost via the OpenZL build)
 
+By default, schemas load from compiled descriptor sets. Enable the
+`proto-source` feature to parse `.proto` source files at runtime.
+
 ## Example
 
 ```rust
 use openzl_protobuf::{OpenZLProtobuf, Schema};
 
-let schema = Schema::proto(
-    "schema.proto",
+let schema = Schema::descriptor(
+    "./schema.desc",
     "mypackage.MyMessage",
-    vec!["./proto".to_string()],
 );
-let mut zl = OpenZLProtobuf::new(schema)?;
-
-let compressor = zl.train_compressor(&[&sample_a, &sample_b])?;
-zl.set_compressor(&compressor)?;
+let zl = OpenZLProtobuf::new(schema)?;
 
 let compressed = zl.compress(&sample_a)?;
 let round_trip = zl.decompress(&compressed)?;

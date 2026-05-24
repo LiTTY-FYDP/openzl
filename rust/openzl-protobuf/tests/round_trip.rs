@@ -1,5 +1,3 @@
-use std::path::PathBuf;
-
 use openzl_protobuf::{OpenZLProtobuf, Schema};
 use prost::Message;
 
@@ -14,11 +12,11 @@ struct TestMessage {
 }
 
 fn schema() -> Schema {
-    let proto_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("proto");
-    Schema::proto(
-        "test_message.proto",
+    let descriptor_path =
+        std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("proto/test_message.desc.bin");
+    Schema::descriptor(
+        descriptor_path.to_string_lossy().to_string(),
         "openzl.test.TestMessage",
-        vec![proto_dir.to_string_lossy().to_string()],
     )
 }
 
@@ -33,6 +31,26 @@ fn sample_message() -> TestMessage {
 #[test]
 fn round_trip_protobuf_message() -> Result<(), Box<dyn std::error::Error>> {
     let zl = OpenZLProtobuf::new(schema())?;
+    let message = sample_message();
+    let original = message.encode_to_vec();
+
+    let compressed = zl.compress(&original)?;
+    let decompressed = zl.decompress(&compressed)?;
+    let decoded = TestMessage::decode(decompressed.as_slice())?;
+
+    assert_eq!(decoded, message);
+    Ok(())
+}
+
+#[test]
+#[cfg(feature = "proto-source")]
+fn round_trip_protobuf_message_from_proto_source() -> Result<(), Box<dyn std::error::Error>> {
+    let proto_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("proto");
+    let zl = OpenZLProtobuf::new(Schema::proto(
+        "test_message.proto",
+        "openzl.test.TestMessage",
+        vec![proto_dir.to_string_lossy().to_string()],
+    ))?;
     let message = sample_message();
     let original = message.encode_to_vec();
 

@@ -11,6 +11,7 @@ struct OpenZLProtobufContext {
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 enum OpenZLProtobufSchemaType {
+    #[cfg(feature = "proto-source")]
     Proto = 0,
     Descriptor = 1,
 }
@@ -134,6 +135,7 @@ pub enum Schema {
     /// `path` is resolved via the `proto_paths` roots (like `protoc --proto_path`),
     /// so it should be relative to one of those directories rather than an
     /// absolute filesystem path.
+    #[cfg(feature = "proto-source")]
     Proto {
         path: String,
         message_type: String,
@@ -220,6 +222,7 @@ fn build_train_params(params: TrainParams) -> OpenZLProtobufTrainParams {
 
 impl Schema {
     /// Create a schema that loads from a .proto file.
+    #[cfg(feature = "proto-source")]
     pub fn proto(
         path: impl Into<String>,
         message_type: impl Into<String>,
@@ -272,6 +275,7 @@ impl OpenZLProtobuf {
     /// Create a new OpenZL protobuf compressor.
     pub fn new(schema: Schema) -> Result<Self, Error> {
         let (schema_type, schema_path, message_type, proto_paths) = match schema {
+            #[cfg(feature = "proto-source")]
             Schema::Proto {
                 path,
                 message_type,
@@ -286,7 +290,7 @@ impl OpenZLProtobuf {
                 OpenZLProtobufSchemaType::Descriptor,
                 path,
                 message_type,
-                Vec::new(),
+                Vec::<String>::new(),
             ),
         };
 

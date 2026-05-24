@@ -1,5 +1,3 @@
-use std::path::PathBuf;
-
 use openzl_protobuf::{ClusteringTrainer, OpenZLProtobuf, Schema, TrainParams};
 use prost::Message;
 
@@ -14,11 +12,11 @@ struct TestMessage {
 }
 
 fn schema() -> Schema {
-    let proto_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("proto");
-    Schema::proto(
-        "test_message.proto",
+    let descriptor_path =
+        std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("proto/test_message.desc.bin");
+    Schema::descriptor(
+        descriptor_path.to_string_lossy().to_string(),
         "openzl.test.TestMessage",
-        vec![proto_dir.to_string_lossy().to_string()],
     )
 }
 

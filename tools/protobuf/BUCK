@@ -20,6 +20,9 @@ zs_cxxlibrary(
         "DynamicMessageHelper.cpp",
         "StringWriter.cpp",
     ],
+    compiler_flags = [
+        "-DOPENZL_PROTOBUF_ENABLE_PROTO_SOURCE=1",
+    ],
     headers = [
         "DescriptorLoader.h",
         "DynamicMessageHelper.h",
@@ -37,6 +40,7 @@ zs_cxxbinary(
     name = "cli",
     srcs = ["cli.cpp"],
     compiler_flags = [
+        "-DOPENZL_PROTOBUF_ENABLE_PROTO_SOURCE=1",
         "-Wno-switch-enum",
         "-Wno-cast-qual",
     ],

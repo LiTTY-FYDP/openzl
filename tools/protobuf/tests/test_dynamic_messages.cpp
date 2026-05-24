@@ -4,19 +4,26 @@
 #include <google/protobuf/message.h>
 #include <gtest/gtest.h>
 #include <filesystem>
+#include <memory>
 #include "../DescriptorLoader.h"
 #include "../DynamicMessageHelper.h"
 #include "tools/protobuf/tests/utils.h"
 
 using namespace openzl::protobuf;
 
+namespace {
+
+std::unique_ptr<google::protobuf::DescriptorPool> loadTestDescriptorPool()
+{
+    DescriptorLoader loader;
+    return loader.loadDescriptorFile(getTestDataPath("test_simple.desc.bin"));
+}
+
+} // namespace
+
 TEST(TestDynamicMessages, CreateDynamicMessage)
 {
-    // Load a proto file to get descriptors
-    DescriptorLoader loader;
-    auto data_path = getTestDataPath("test_simple.proto");
-    loader.addProtoPath(data_path.parent_path());
-    auto pool = loader.loadProtoFile(data_path.filename());
+    auto pool = loadTestDescriptorPool();
     ASSERT_NE(pool, nullptr);
 
     // Create helper
@@ -37,11 +44,7 @@ TEST(TestDynamicMessages, CreateDynamicMessage)
 
 TEST(TestDynamicMessages, RoundTripSerialization)
 {
-    // Load descriptors
-    DescriptorLoader loader;
-    auto data_path = getTestDataPath("test_simple.proto");
-    loader.addProtoPath(data_path.parent_path());
-    auto pool = loader.loadProtoFile(data_path.filename());
+    auto pool = loadTestDescriptorPool();
 
     DynamicMessageHelper helper(pool.get());
 
@@ -79,11 +82,7 @@ TEST(TestDynamicMessages, RoundTripSerialization)
 
 TEST(TestDynamicMessages, FieldAccessAndModification)
 {
-    // Load descriptors
-    DescriptorLoader loader;
-    auto data_path = getTestDataPath("test_simple.proto");
-    loader.addProtoPath(data_path.parent_path());
-    auto pool = loader.loadProtoFile(data_path.filename());
+    auto pool = loadTestDescriptorPool();
 
     DynamicMessageHelper helper(pool.get());
 
@@ -124,11 +123,7 @@ TEST(TestDynamicMessages, FieldAccessAndModification)
 
 TEST(TestDynamicMessages, GetDescriptor)
 {
-    // Load descriptors
-    DescriptorLoader loader;
-    auto data_path = getTestDataPath("test_simple.proto");
-    loader.addProtoPath(data_path.parent_path());
-    auto pool = loader.loadProtoFile(data_path.filename());
+    auto pool = loadTestDescriptorPool();
 
     DynamicMessageHelper helper(pool.get());
 
@@ -149,11 +144,7 @@ TEST(TestDynamicMessages, GetDescriptor)
 
 TEST(TestDynamicMessages, ParseInvalidData)
 {
-    // Load descriptors
-    DescriptorLoader loader;
-    auto data_path = getTestDataPath("test_simple.proto");
-    loader.addProtoPath(data_path.parent_path());
-    auto pool = loader.loadProtoFile(data_path.filename());
+    auto pool = loadTestDescriptorPool();
 
     DynamicMessageHelper helper(pool.get());
 

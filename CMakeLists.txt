@@ -17,6 +17,7 @@ option(OPENZL_BUILD_BENCHMARKS "Build benchmarks" ${OPENZL_BUILD_ALL})
 option(OPENZL_BUILD_PROTOBUF_TOOLS "Build protobuf tools and libraries" ${OPENZL_BUILD_ALL})
 option(OPENZL_BUILD_PROTOBUF_CLI "Build protobuf CLI" ${OPENZL_BUILD_PROTOBUF_TOOLS})
 option(OPENZL_BUILD_PROTOBUF_TRAINING "Build protobuf training FFI" ${OPENZL_BUILD_PROTOBUF_TOOLS})
+option(OPENZL_BUILD_PROTOBUF_PROTO_SOURCE "Enable runtime .proto source parsing for protobuf tools" ${OPENZL_BUILD_PROTOBUF_CLI})
 set(OPENZL_PROTOBUF_PROVIDER "auto" CACHE STRING "Protobuf provider: auto, system, or fetch")
 set_property(CACHE OPENZL_PROTOBUF_PROVIDER PROPERTY STRINGS auto system fetch)
 # Apache Arrow build is broken due to missing thrift download.

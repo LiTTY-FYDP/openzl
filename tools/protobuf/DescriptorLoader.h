@@ -1,9 +1,11 @@
 // Copyright (c) Meta Platforms, Inc. and affiliates.
 #pragma once
 
-#include <google/protobuf/compiler/importer.h>
 #include <google/protobuf/descriptor.h>
 #include <google/protobuf/descriptor.pb.h>
+#ifdef OPENZL_PROTOBUF_ENABLE_PROTO_SOURCE
+#    include <google/protobuf/compiler/importer.h>
+#endif
 #include <memory>
 #include <string>
 #include <vector>
@@ -14,6 +16,7 @@ namespace protobuf {
 /**
  * Error collector for protobuf compiler that stores error messages
  */
+#ifdef OPENZL_PROTOBUF_ENABLE_PROTO_SOURCE
 class ErrorCollector
         : public google::protobuf::compiler::MultiFileErrorCollector {
    public:
@@ -68,13 +71,13 @@ class ErrorCollector
     std::vector<std::string> errors_;
     std::vector<std::string> warnings_;
 };
+#endif
 
 /**
- * Loads protobuf descriptors from .proto or .desc files at runtime.
+ * Loads protobuf descriptors from compiled .desc files at runtime.
  *
- * Supports two modes:
- * 1. Loading .proto files (parsed using protobuf compiler)
- * 2. Loading .desc files (pre-compiled FileDescriptorSet)
+ * Runtime .proto source parsing is available when the protobuf proto-source
+ * build option is enabled.
  *
  * Example usage:
  *
@@ -96,6 +99,7 @@ class DescriptorLoader {
     /**
      * Add a search path for .proto file imports (like protoc --proto_path)
      */
+#ifdef OPENZL_PROTOBUF_ENABLE_PROTO_SOURCE
     void addProtoPath(const std::string& path);
 
     /**
@@ -107,6 +111,7 @@ class DescriptorLoader {
      */
     std::unique_ptr<google::protobuf::DescriptorPool> loadProtoFile(
             const std::string& proto_file);
+#endif
 
     /**
      * Load a .desc file (FileDescriptorSet) and return a DescriptorPool.
@@ -121,6 +126,7 @@ class DescriptorLoader {
     /**
      * Get the list of errors from the last operation
      */
+#ifdef OPENZL_PROTOBUF_ENABLE_PROTO_SOURCE
     const std::vector<std::string>& errors() const
     {
         return error_collector_->errors();
@@ -133,10 +139,13 @@ class DescriptorLoader {
     {
         return error_collector_->warnings();
     }
+#endif
 
    private:
+#ifdef OPENZL_PROTOBUF_ENABLE_PROTO_SOURCE
     std::vector<std::string> proto_paths_;
     std::unique_ptr<ErrorCollector> error_collector_;
+#endif
 };
 
 } // namespace protobuf

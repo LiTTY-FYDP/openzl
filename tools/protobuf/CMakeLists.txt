@@ -10,10 +10,31 @@ if (OPENZL_BUILD_PROTOBUF_TOOLS)
         message(FATAL_ERROR "OPENZL_BUILD_PROTOBUF_TRAINING requires OPENZL_BUILD_CUSTOM_PARSERS")
     endif()
 
+    if(OPENZL_BUILD_PROTOBUF_CLI AND NOT OPENZL_BUILD_PROTOBUF_PROTO_SOURCE)
+        message(FATAL_ERROR "OPENZL_BUILD_PROTOBUF_CLI requires OPENZL_BUILD_PROTOBUF_PROTO_SOURCE")
+    endif()
+
+    set(OPENZL_PROTOBUF_REQUIRED_TARGETS protobuf::libprotobuf)
+    if(OPENZL_BUILD_PROTOBUF_PROTO_SOURCE)
+        list(APPEND OPENZL_PROTOBUF_REQUIRED_TARGETS protobuf::libprotoc)
+    endif()
+    if(OPENZL_BUILD_PROTOBUF_CLI)
+        list(APPEND OPENZL_PROTOBUF_REQUIRED_TARGETS protobuf::protoc)
+    endif()
+
+    macro(openzl_check_missing_protobuf_targets out_var)
+        set(${out_var} OFF)
+        foreach(openzl_protobuf_required_target IN LISTS OPENZL_PROTOBUF_REQUIRED_TARGETS)
+            if(NOT TARGET ${openzl_protobuf_required_target})
+                set(${out_var} ON)
+            endif()
+        endforeach()
+    endmacro()
+
     if(NOT OPENZL_PROTOBUF_PROVIDER STREQUAL "fetch")
         find_package(protobuf CONFIG QUIET)
-        if(OPENZL_PROTOBUF_PROVIDER STREQUAL "system"
-                AND (NOT TARGET protobuf::libprotobuf OR NOT TARGET protobuf::libprotoc))
+        openzl_check_missing_protobuf_targets(openzl_missing_protobuf_targets)
+        if(OPENZL_PROTOBUF_PROVIDER STREQUAL "system" AND openzl_missing_protobuf_targets)
             find_package(Protobuf MODULE QUIET)
         endif()
     endif()
@@ -22,20 +43,21 @@ if (OPENZL_BUILD_PROTOBUF_TOOLS)
     set(protobuf_WITH_ZLIB OFF CACHE BOOL "" FORCE)
     set(protobuf_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
     set(protobuf_BUILD_CONFORMANCE OFF CACHE BOOL "" FORCE)
-    set(protobuf_BUILD_LIBPROTOC ON CACHE BOOL "" FORCE)
+    set(protobuf_BUILD_LIBPROTOC ${OPENZL_BUILD_PROTOBUF_PROTO_SOURCE} CACHE BOOL "" FORCE)
     set(protobuf_BUILD_LIBUPB ON CACHE BOOL "" FORCE)
     set(protobuf_BUILD_PROTOC_BINARIES ${OPENZL_BUILD_PROTOBUF_CLI} CACHE BOOL "" FORCE)
 
-    if((NOT TARGET protobuf::libprotobuf OR NOT TARGET protobuf::libprotoc)
-            AND NOT OPENZL_PROTOBUF_PROVIDER STREQUAL "system")
+    openzl_check_missing_protobuf_targets(openzl_missing_protobuf_targets)
+    if(openzl_missing_protobuf_targets AND NOT OPENZL_PROTOBUF_PROVIDER STREQUAL "system")
         FetchContent_Declare(protobuf
             GIT_REPOSITORY https://github.com/protocolbuffers/protobuf.git
             GIT_TAG        v32.0
         )
         FetchContent_MakeAvailable(protobuf)
     endif()
-    if(NOT TARGET protobuf::libprotobuf OR NOT TARGET protobuf::libprotoc)
-        message(FATAL_ERROR "OpenZL protobuf tools require protobuf::libprotobuf and protobuf::libprotoc")
+    openzl_check_missing_protobuf_targets(openzl_missing_protobuf_targets)
+    if(openzl_missing_protobuf_targets)
+        message(FATAL_ERROR "OpenZL protobuf tools require ${OPENZL_PROTOBUF_REQUIRED_TARGETS}")
     endif()
     if(TARGET libprotobuf AND NOT TARGET protobuf::libprotobuf)
         target_compile_options(libprotobuf PUBLIC
@@ -59,8 +81,12 @@ if (OPENZL_BUILD_PROTOBUF_TOOLS)
     target_link_libraries(openzl_protobuf_serializer PUBLIC
         openzl_cpp
         protobuf::libprotobuf
-        protobuf::libprotoc
     )
+    if(OPENZL_BUILD_PROTOBUF_PROTO_SOURCE)
+        target_link_libraries(openzl_protobuf_serializer PUBLIC protobuf::libprotoc)
+        target_compile_definitions(openzl_protobuf_serializer PUBLIC
+            OPENZL_PROTOBUF_ENABLE_PROTO_SOURCE=1)
+    endif()
     apply_openzl_compile_options_to_target(openzl_protobuf_serializer)
 
     add_library(openzl_protobuf_core SHARED

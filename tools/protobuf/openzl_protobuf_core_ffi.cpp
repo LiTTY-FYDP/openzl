@@ -98,6 +98,7 @@ bool initializeContext(
     }
 
     DescriptorLoader loader;
+#ifdef OPENZL_PROTOBUF_ENABLE_PROTO_SOURCE
     for (size_t i = 0; i < schema->proto_paths_len; ++i) {
         if (!schema->proto_paths[i]) {
             setError(ctx, "Proto path entry is null.");
@@ -105,10 +106,21 @@ bool initializeContext(
         }
         loader.addProtoPath(schema->proto_paths[i]);
     }
+#else
+    if (schema->proto_paths_len > 0) {
+        setError(ctx, "Proto paths require .proto source parsing support.");
+        return false;
+    }
+#endif
 
     std::unique_ptr<google::protobuf::DescriptorPool> pool;
     if (schema->schema_type == OPENZL_PROTOBUF_SCHEMA_PROTO) {
+#ifdef OPENZL_PROTOBUF_ENABLE_PROTO_SOURCE
         pool = loader.loadProtoFile(schema->schema_path);
+#else
+        setError(ctx, ".proto source parsing support is disabled.");
+        return false;
+#endif
     } else if (schema->schema_type == OPENZL_PROTOBUF_SCHEMA_DESCRIPTOR) {
         pool = loader.loadDescriptorFile(schema->schema_path);
     } else {

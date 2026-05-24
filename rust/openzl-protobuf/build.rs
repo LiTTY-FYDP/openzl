@@ -7,6 +7,7 @@ fn main() {
         .join("../..")
         .canonicalize()
         .expect("failed to resolve repo root");
+    let proto_source_enabled = env::var_os("CARGO_FEATURE_PROTO_SOURCE").is_some();
     let training_enabled = env::var_os("CARGO_FEATURE_TRAINING").is_some();
 
     println!(
@@ -22,6 +23,16 @@ fn main() {
         root_dir
             .join("tools/protobuf/openzl_protobuf_core_ffi.cpp")
             .display()
+    );
+    println!(
+        "cargo:rerun-if-changed={}",
+        root_dir
+            .join("tools/protobuf/DescriptorLoader.cpp")
+            .display()
+    );
+    println!(
+        "cargo:rerun-if-changed={}",
+        root_dir.join("tools/protobuf/DescriptorLoader.h").display()
     );
     println!(
         "cargo:rerun-if-changed={}",
@@ -68,6 +79,10 @@ fn main() {
         .profile(build_type)
         .define("OPENZL_BUILD_PROTOBUF_TOOLS", "ON")
         .define("OPENZL_BUILD_PROTOBUF_CLI", "OFF")
+        .define(
+            "OPENZL_BUILD_PROTOBUF_PROTO_SOURCE",
+            if proto_source_enabled { "ON" } else { "OFF" },
+        )
         .define(
             "OPENZL_BUILD_PROTOBUF_TRAINING",
             if training_enabled { "ON" } else { "OFF" },
