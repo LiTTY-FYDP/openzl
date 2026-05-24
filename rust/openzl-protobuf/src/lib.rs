@@ -17,6 +17,7 @@ enum OpenZLProtobufSchemaType {
 
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
+#[cfg(feature = "training")]
 /// Clustering trainer selection for training compressed protobufs.
 enum OpenZLProtobufClusteringTrainer {
     /// Greedy search from "group by type" clustering; best when inputs
@@ -48,6 +49,7 @@ struct OpenZLBuffer {
 
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
+#[cfg(feature = "training")]
 struct OpenZLProtobufParetoResult {
     index: usize,
     compression_ratio: f64,
@@ -58,6 +60,7 @@ struct OpenZLProtobufParetoResult {
 
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
+#[cfg(feature = "training")]
 struct OpenZLProtobufTrainParams {
     has_threads: u8,
     threads: u32,
@@ -72,8 +75,7 @@ struct OpenZLProtobufTrainParams {
 }
 
 extern "C" {
-    fn openzl_protobuf_create(schema: *const OpenZLProtobufSchema)
-        -> *mut OpenZLProtobufContext;
+    fn openzl_protobuf_create(schema: *const OpenZLProtobufSchema) -> *mut OpenZLProtobufContext;
     fn openzl_protobuf_destroy(ctx: *mut OpenZLProtobufContext);
     fn openzl_protobuf_last_error(ctx: *const OpenZLProtobufContext) -> *const c_char;
     fn openzl_protobuf_set_compressor(
@@ -93,12 +95,14 @@ extern "C" {
         zl_len: usize,
         out: *mut OpenZLBuffer,
     ) -> i32;
+    #[cfg(feature = "training")]
     fn openzl_protobuf_train(
         ctx: *mut OpenZLProtobufContext,
         samples: *const OpenZLBuffer,
         samples_len: usize,
         out_compressor: *mut OpenZLBuffer,
     ) -> i32;
+    #[cfg(feature = "training")]
     fn openzl_protobuf_train_with_params(
         ctx: *mut OpenZLProtobufContext,
         samples: *const OpenZLBuffer,
@@ -106,6 +110,7 @@ extern "C" {
         params: *const OpenZLProtobufTrainParams,
         out_compressor: *mut OpenZLBuffer,
     ) -> i32;
+    #[cfg(feature = "training")]
     fn openzl_protobuf_train_pareto(
         ctx: *mut OpenZLProtobufContext,
         samples: *const OpenZLBuffer,
@@ -115,6 +120,7 @@ extern "C" {
         out_results_len: *mut usize,
     ) -> i32;
     fn openzl_protobuf_free_buffer(buffer: *mut OpenZLBuffer);
+    #[cfg(feature = "training")]
     fn openzl_protobuf_free_pareto_results(
         results: *mut OpenZLProtobufParetoResult,
         results_len: usize,
@@ -142,6 +148,7 @@ pub enum Schema {
 
 /// Pareto frontier training result for a compressor.
 #[derive(Debug, Clone)]
+#[cfg(feature = "training")]
 pub struct ParetoCompressor {
     /// Index of the compressor in the Pareto frontier output.
     pub index: usize,
@@ -157,6 +164,7 @@ pub struct ParetoCompressor {
 
 /// Training algorithm selection for clustering graphs.
 #[derive(Debug, Copy, Clone)]
+#[cfg(feature = "training")]
 pub enum ClusteringTrainer {
     Greedy,
     BottomUp,
@@ -165,6 +173,7 @@ pub enum ClusteringTrainer {
 
 /// Training parameters for clustering-based compressors.
 #[derive(Debug, Copy, Clone)]
+#[cfg(feature = "training")]
 pub struct TrainParams {
     pub threads: Option<u32>,
     pub clustering_trainer: Option<ClusteringTrainer>,
@@ -173,6 +182,7 @@ pub struct TrainParams {
     pub clustering: bool,
 }
 
+#[cfg(feature = "training")]
 impl Default for TrainParams {
     fn default() -> Self {
         Self {
@@ -185,6 +195,7 @@ impl Default for TrainParams {
     }
 }
 
+#[cfg(feature = "training")]
 fn build_train_params(params: TrainParams) -> OpenZLProtobufTrainParams {
     OpenZLProtobufTrainParams {
         has_threads: params.threads.is_some() as u8,
@@ -194,15 +205,9 @@ fn build_train_params(params: TrainParams) -> OpenZLProtobufTrainParams {
             .clustering_trainer
             .unwrap_or(ClusteringTrainer::Greedy)
         {
-            ClusteringTrainer::Greedy => {
-                OpenZLProtobufClusteringTrainer::Greedy
-            }
-            ClusteringTrainer::BottomUp => {
-                OpenZLProtobufClusteringTrainer::BottomUp
-            }
-            ClusteringTrainer::FullSplit => {
-                OpenZLProtobufClusteringTrainer::FullSplit
-            }
+            ClusteringTrainer::Greedy => OpenZLProtobufClusteringTrainer::Greedy,
+            ClusteringTrainer::BottomUp => OpenZLProtobufClusteringTrainer::BottomUp,
+            ClusteringTrainer::FullSplit => OpenZLProtobufClusteringTrainer::FullSplit,
         },
         has_max_time_secs: params.max_time_secs.is_some() as u8,
         max_time_secs: params.max_time_secs.unwrap_or_default(),
@@ -272,13 +277,13 @@ impl OpenZLProtobuf {
                 message_type,
                 proto_paths,
             } => (
-            OpenZLProtobufSchemaType::Proto,
+                OpenZLProtobufSchemaType::Proto,
                 path,
                 message_type,
                 proto_paths,
             ),
             Schema::Descriptor { path, message_type } => (
-            OpenZLProtobufSchemaType::Descriptor,
+                OpenZLProtobufSchemaType::Descriptor,
                 path,
                 message_type,
                 Vec::new(),
@@ -293,8 +298,8 @@ impl OpenZLProtobuf {
         let mut proto_path_storage = Vec::new();
         let mut proto_path_ptrs = Vec::new();
         for path in proto_paths {
-            let c_path = CString::new(path)
-                .map_err(|_| Error::new("Proto path contains a null byte."))?;
+            let c_path =
+                CString::new(path).map_err(|_| Error::new("Proto path contains a null byte."))?;
             proto_path_ptrs.push(c_path.as_ptr());
             proto_path_storage.push(c_path);
         }
@@ -380,6 +385,7 @@ impl OpenZLProtobuf {
     }
 
     /// Train a compressor from a set of protobuf messages.
+    #[cfg(feature = "training")]
     pub fn train_compressor(&self, samples: &[&[u8]]) -> Result<Vec<u8>, Error> {
         if samples.is_empty() {
             return Err(Error::new("Training samples are empty."));
@@ -398,12 +404,7 @@ impl OpenZLProtobuf {
             len: 0,
         };
         let ok = unsafe {
-            openzl_protobuf_train(
-                self.ctx.as_ptr(),
-                buffers.as_ptr(),
-                buffers.len(),
-                &mut out,
-            )
+            openzl_protobuf_train(self.ctx.as_ptr(), buffers.as_ptr(), buffers.len(), &mut out)
         };
         if ok != 1 {
             return Err(self.error_from_last("Training failed."));
@@ -412,6 +413,7 @@ impl OpenZLProtobuf {
     }
 
     /// Train a compressor from a set of protobuf messages with parameters.
+    #[cfg(feature = "training")]
     pub fn train_compressor_with_params(
         &self,
         samples: &[&[u8]],
@@ -451,6 +453,7 @@ impl OpenZLProtobuf {
     }
 
     /// Train a Pareto frontier of compressors and benchmark them.
+    #[cfg(feature = "training")]
     pub fn train_pareto_frontier(
         &self,
         samples: &[&[u8]],

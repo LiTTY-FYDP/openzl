@@ -45,6 +45,7 @@ fn round_trip_protobuf_message() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 #[test]
+#[cfg(feature = "training")]
 fn train_compressor_round_trip() -> Result<(), Box<dyn std::error::Error>> {
     let mut zl = OpenZLProtobuf::new(schema())?;
     let message = sample_message();
