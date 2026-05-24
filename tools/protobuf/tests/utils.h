@@ -6,7 +6,7 @@
 
 #include "openzl/zl_version.h"
 
-#ifdef ZL_IS_FBCODE
+#if defined(ZL_IS_FBCODE) && (ZL_IS_FBCODE == 1)
 #    include "tools/cxx/Resources.h"
 #endif
 

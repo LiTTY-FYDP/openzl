@@ -7,7 +7,7 @@ namespace protobuf {
 
 std::filesystem::path getTestDataPath(const std::string& filename)
 {
-#ifdef ZL_IS_FBCODE
+#if defined(ZL_IS_FBCODE) && (ZL_IS_FBCODE == 1)
     auto path = std::filesystem::path("resources") / filename;
     return build::getResourcePath(path.string()).string();
 #else

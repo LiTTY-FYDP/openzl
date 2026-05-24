@@ -507,10 +507,6 @@ int openzl_protobuf_train_with_params(
 
         auto serialized =
                 openzl::training::trainClusteringGraph(inputs, *compressor, trainParams);
-        if (!serialized) {
-            setError(ctx, "Training returned no compressors.");
-            return 0;
-        }
 
         std::string out(*serialized);
         return copyToBuffer(ctx, out, out_compressor) ? 1 : 0;
@@ -592,10 +588,11 @@ int openzl_protobuf_train_pareto(
         for (size_t i = 0; i < serializedCompressorResults.size(); ++i) {
             auto& serialized = serializedCompressorResults[i];
             auto resultCompressor =
-                    openzl::custom_parsers::createCompressorFromSerialized(*serialized);
+                    openzl::custom_parsers::createCompressorFromSerialized(
+                            serialized.serializedCompressor);
             auto metrics = benchmarkCompressor(inputs, *resultCompressor);
             OpenZLBuffer compressorBuffer{};
-            if (!copyToBufferView(ctx, *serialized, &compressorBuffer)) {
+            if (!copyToBuffer(ctx, serialized.serializedCompressor, &compressorBuffer)) {
                 for (auto& result : results) {
                     delete[] result.compressor.data;
                     result.compressor.data = nullptr;

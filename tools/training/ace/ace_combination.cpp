@@ -416,7 +416,9 @@ std::vector<SerializedCompressorInternal> getCombinedCompressors(
         candidates.emplace_back(candidatesFromVec(name, subCompressors));
     }
     if (candidates.empty()) {
-        return { trainedSerializedCompressor };
+        std::vector<SerializedCompressorInternal> result;
+        result.emplace_back(std::string(*trainedSerializedCompressor));
+        return result;
     }
     auto frontier = combineCandidates(candidates, trainParams);
     frontier = pruneCandidates(std::move(frontier), kNumFinalParetoCandidates);

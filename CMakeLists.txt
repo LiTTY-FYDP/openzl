@@ -36,6 +36,12 @@ option(OPENZL_BUILD_EXAMPLES "Build the examples subdirectory" ON)
 
 set(OPENZL_SUPPORT_SHARED_LIBRARY "${OPENZL_BUILD_SHARED_LIBS}")
 
+# note: The protobuf FFI target is always a shared library and links OpenZL
+# static targets, so protobuf-tool builds must compile those archives as PIC.
+if(OPENZL_BUILD_PROTOBUF_TOOLS)
+    set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+endif()
+
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 # ---- CMake Module Path ----

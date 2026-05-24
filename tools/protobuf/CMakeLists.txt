@@ -81,8 +81,7 @@ if (OPENZL_BUILD_PROTOBUF_TOOLS)
     # Build tests if enabled
     if(OPENZL_BUILD_TESTS)
         add_library(protobuf_test_utils "${CMAKE_CURRENT_SOURCE_DIR}/tests/utils.cpp")
-        target_include_directories(protobuf_test_utils PRIVATE
-            ${PROJECT_SOURCE_DIR})
+        target_link_libraries(protobuf_test_utils PUBLIC openzl_deps)
 
         # Test for DescriptorLoader
         add_executable(test_protobuf_descriptor_loader
