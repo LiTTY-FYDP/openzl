@@ -22,7 +22,7 @@ run = "cmake --build build --parallel"
 [tasks.test]
 description = "Build and run the CMake test suite"
 depends = ["build"]
-run = "ctest --test-dir build --output-on-failure"
+run = "ctest --test-dir build --output-on-failure --parallel ${CTEST_PARALLEL_LEVEL:-16}"
 
 [tasks.rust-build]
 description = "Build the OpenZL protobuf Rust bindings"
