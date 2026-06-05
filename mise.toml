@@ -1,0 +1,45 @@
+[tools]
+rust = "1.96.0"
+cmake = "4.3.3"
+ninja = "1.13.2"
+protobuf = "35.0"
+python = "3.12.13"
+uv = "0.11.19"
+ruff = "0.15.0"
+
+[env]
+CMAKE_GENERATOR = "Ninja"
+
+[tasks.configure]
+description = "Configure the development CMake build"
+run = "cmake -S . -B build -DOPENZL_BUILD_MODE=dev -DOPENZL_BUILD_TESTS=ON"
+
+[tasks.build]
+description = "Build OpenZL with CMake"
+depends = ["configure"]
+run = "cmake --build build --parallel"
+
+[tasks.test]
+description = "Build and run the CMake test suite"
+depends = ["build"]
+run = "ctest --test-dir build --output-on-failure"
+
+[tasks.rust-build]
+description = "Build the OpenZL protobuf Rust bindings"
+run = "cargo build --manifest-path rust/openzl-protobuf/Cargo.toml"
+
+[tasks.rust-test]
+description = "Test the default OpenZL protobuf Rust bindings"
+run = "cargo test --manifest-path rust/openzl-protobuf/Cargo.toml"
+
+[tasks.rust-test-all-features]
+description = "Test all OpenZL protobuf Rust binding features"
+run = "cargo test --manifest-path rust/openzl-protobuf/Cargo.toml --all-features"
+
+[tasks.python-test]
+description = "Build and test the Python package"
+run = "cd py && uv run --group test python -m unittest discover tests"
+
+[tasks.python-format]
+description = "Check Python formatting with the CI Ruff version"
+run = "./scripts/check_python_format.sh"

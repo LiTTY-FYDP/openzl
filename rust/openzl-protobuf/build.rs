@@ -37,7 +37,6 @@ fn main() {
     let training_enabled = env::var_os("CARGO_FEATURE_TRAINING").is_some();
 
     println!("cargo:rerun-if-env-changed=CMAKE_GENERATOR");
-    println!("cargo:rerun-if-env-changed=PATH");
     println!(
         "cargo:rerun-if-changed={}",
         root_dir.join("CMakeLists.txt").display()

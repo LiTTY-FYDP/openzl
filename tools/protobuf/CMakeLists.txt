@@ -111,6 +111,7 @@ if (OPENZL_BUILD_PROTOBUF_TOOLS)
         target_include_directories(openzl_protobuf_train PRIVATE ${PROJECT_SOURCE_DIR})
         target_link_libraries(openzl_protobuf_train PRIVATE
             openzl_protobuf_core
+            protobuf::libprotobuf
             tools_training
             custom_parsers
         )
