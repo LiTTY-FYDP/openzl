@@ -160,6 +160,12 @@ fn main() {
         println!("cargo:rustc-link-lib=dylib=openzl_protobuf_train_ffi");
     }
 
+    // Expose the native lib directory to direct dependents (via DEP_OPENZL_PROTOBUF_CORE_FFI_LIB_DIR,
+    // because this crate sets `links`). A build script's `rustc-link-arg` rpath below applies only to
+    // this crate's own targets and does NOT propagate to a dependent binary, so dependents must bake
+    // the rpath themselves using this path to find the FFI .so at runtime without LD_LIBRARY_PATH.
+    println!("cargo:lib_dir={}", lib_dir.display());
+
     let target_os = env::var("CARGO_CFG_TARGET_OS").unwrap_or_default();
     match target_os.as_str() {
         "linux" => {
